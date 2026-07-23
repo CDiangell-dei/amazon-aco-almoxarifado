@@ -1024,26 +1024,36 @@
 
             const startIso = new Date(startDate + 'T12:00:00').toISOString();
 
-            const payload = {
-                tipo_luva: finalGlove,
-                preço: valInput,
-                preco: valInput,
-                data_inicio: startIso
-            };
-
             if (supabaseClient) {
                 try {
-                    let { error } = await supabaseClient.from('preços_luvas').insert([payload]);
+                    // Envia exatamente as colunas exatas da tabela 'preços_luvas' (sem colunas extras inexistentes)
+                    let payloadExact = {
+                        tipo_luva: finalGlove,
+                        preço: valInput,
+                        data_inicio: startIso
+                    };
+
+                    let { error } = await supabaseClient.from('preços_luvas').insert([payloadExact]);
+
+                    // Fallback caso a coluna no banco esteja sem cedilha (preco)
                     if (error) {
-                        const fb = await supabaseClient.from('precos_luvas').insert([{
+                        console.warn("Tentativa 1 com 'preço' falhou, tentando variante...", error.message);
+                        let altA = await supabaseClient.from('preços_luvas').insert([{
                             tipo_luva: finalGlove,
                             preco: valInput,
                             data_inicio: startIso
                         }]);
-                        error = fb.error;
+                        
+                        if (altA.error) {
+                            let altB = await supabaseClient.from('precos_luvas').insert([payloadExact]);
+                            error = altB.error;
+                        } else {
+                            error = null;
+                        }
                     }
 
                     if (error) {
+                        console.error("Erro no Supabase ao inserir preço:", error);
                         showAlert(`Erro ao salvar preço: ${error.message}`, "error");
                     } else {
                         showAlert(`Preço de R$ ${valInput.toFixed(2)} registrado para "${finalGlove}" a partir de ${startDate}!`, "success");
@@ -1051,10 +1061,11 @@
                         document.getElementById('priceValueInput').value = '';
                         document.getElementById('priceNewGloveInput').value = '';
                         
-                        await loadSupabaseData(); // Recalcula o dashboard inteiro!
+                        await loadSupabaseData(); // Recalcula o dashboard inteiro e reatualiza dropdowns!
                     }
                 } catch (err) {
-                    showAlert("Erro de conexão com o Supabase.", "error");
+                    console.error("Exceção:", err);
+                    showAlert("Erro de conexão com o Supabase ao salvar preço.", "error");
                 }
             } else {
                 priceHistory.unshift({ tipo_luva: finalGlove, preço: valInput, preco: valInput, data_inicio: startDate });
