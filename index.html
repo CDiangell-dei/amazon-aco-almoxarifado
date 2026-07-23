@@ -729,14 +729,13 @@
                 return parseFloat(allForGlove[0].preço || allForGlove[0].preco) || 0;
             }
 
-            return 15.0; // Valor padrão genérico se o banco falhar
+            return 15.0; // Valor padrão genérico
         }
 
         async function fetchPriceHistory() {
             if (!supabaseClient) return;
 
             try {
-                // Tenta puxar a coluna "preço" com cedilha. Em caso de erro, tenta sem cedilha.
                 let { data, error } = await supabaseClient.from('preços_luvas').select('*').order('data_inicio', { ascending: false });
                 if (error) {
                     const fallback = await supabaseClient.from('precos_luvas').select('*').order('data_inicio', { ascending: false });
@@ -807,8 +806,6 @@
 
                     updateConnectionStatus(true);
                     loadSupabaseData();
-                    
-                    // Configura o Timer de 1 Minuto
                     setupAutoRefresh();
                 } catch (e) {
                     console.error("Erro ao inicializar Supabase:", e);
@@ -824,11 +821,9 @@
         function setupAutoRefresh() {
             if (!supabaseClient) return;
 
-            // Cronômetro de Segurança (Atualiza a cada 60 segundos / 1 minuto)
             if (autoRefreshInterval) clearInterval(autoRefreshInterval);
             
             autoRefreshInterval = setInterval(() => {
-                console.log("🔄 Atualização periódica de 1 minuto executada silenciosamente...");
                 fetchPriceHistory().then(() => {
                     let startIndex = 0;
                     const pageSize = 1000;
@@ -843,7 +838,7 @@
                             }
                         });
                 });
-            }, 60000); // 60.000 ms = 1 minuto
+            }, 60000);
         }
 
         function openConfigModal() {
@@ -1295,7 +1290,8 @@
 
             if (!filterYear || !compYearA || !compYearB) return;
 
-            const years = [...new Set(rawDataset.map(item => item.Year))].sort((a,b) => b - a);
+            // Ordena os anos do mais antigo para o mais novo (cronológico)
+            const years = [...new Set(rawDataset.map(item => item.Year))].filter(Boolean).sort((a,b) => a - b);
             filterYear.innerHTML = '<option value="Todos">Todos os Anos</option>';
             compYearA.innerHTML = '';
             compYearB.innerHTML = '';
@@ -1309,13 +1305,13 @@
                 const optA = document.createElement('option');
                 optA.value = yr;
                 optA.text = yr;
-                if (index === 1 || years.length === 1) optA.selected = true;
+                if (index === Math.max(0, years.length - 2)) optA.selected = true;
                 compYearA.appendChild(optA);
 
                 const optB = document.createElement('option');
                 optB.value = yr;
                 optB.text = yr;
-                if (index === 0) optB.selected = true;
+                if (index === years.length - 1) optB.selected = true;
                 compYearB.appendChild(optB);
             });
         }
@@ -1541,7 +1537,9 @@
 
             let sectorTotals = {};
             let gloveModels = {};
-            let monthlyTrend = {};
+            let monthlyTrendMap = {};
+
+            const monthsShort = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
             filteredDataset.forEach(item => {
                 const sName = cleanAndFormatString(item.Setor);
@@ -1549,13 +1547,17 @@
 
                 gloveModels[item.Luva] = (gloveModels[item.Luva] || 0) + item.Quantidade;
 
-                const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-                let monthLabel = item.Year && item.Month ? `${months[item.Month - 1]}/${item.Year}` : 'Sem Data';
-
-                if (!monthlyTrend[monthLabel]) {
-                    monthlyTrend[monthLabel] = {};
+                if (item.Year && item.Month) {
+                    // Chave 'YYYY-MM' garante ordenação estritamente cronológica
+                    const monthKey = `${item.Year}-${String(item.Month).padStart(2, '0')}`;
+                    if (!monthlyTrendMap[monthKey]) {
+                        monthlyTrendMap[monthKey] = {
+                            label: `${monthsShort[item.Month - 1]}/${item.Year}`,
+                            sectors: {}
+                        };
+                    }
+                    monthlyTrendMap[monthKey].sectors[sName] = (monthlyTrendMap[monthKey].sectors[sName] || 0) + item.Quantidade;
                 }
-                monthlyTrend[monthLabel][sName] = (monthlyTrend[monthLabel][sName] || 0) + item.Quantidade;
             });
 
             // 1. ROSCA PARTICIPAÇÃO POR SETOR DINÂMICO
@@ -1621,23 +1623,28 @@
                         }
                     });
                 } else {
-                    const sortedMonths = Object.keys(monthlyTrend);
+                    // Ordena do mais antigo para o mais novo (Esquerda -> Direita)
+                    const sortedMonthKeys = Object.keys(monthlyTrendMap).sort((a, b) => a.localeCompare(b));
+                    const sortedLabels = sortedMonthKeys.map(k => monthlyTrendMap[k].label);
                     const allSectors = Object.keys(sectorTotals).sort();
 
                     const datasetsLine = allSectors.map(s => {
                         const cfg = getSegmentConfig(s);
                         return {
-                            label: s,
-                            data: sortedMonths.map(m => monthlyTrend[m][s] || 0),
+                            label: cfg.name,
+                            data: sortedMonthKeys.map(k => monthlyTrendMap[k].sectors[s] || 0),
                             borderColor: cfg.solid,
-                            backgroundColor: cfg.solid
+                            backgroundColor: cfg.solid,
+                            tension: 0.3,
+                            pointBackgroundColor: cfg.solid,
+                            pointRadius: 4
                         };
                     });
 
                     chartInstances.line = new Chart(ctxLine, {
                         type: 'line',
                         data: {
-                            labels: sortedMonths,
+                            labels: sortedLabels,
                             datasets: datasetsLine
                         },
                         options: {
@@ -1649,7 +1656,7 @@
                             },
                             scales: {
                                 y: { grid: { color: '#e2e8f0' }, ticks: { color: '#475569' } },
-                                x: { grid: { display: false }, ticks: { color: '#475569' } }
+                                x: { grid: { display: false }, ticks: { color: '#475569', font: { size: 11, weight: 'bold' } } }
                             }
                         }
                     });
@@ -1664,7 +1671,7 @@
                     type: 'bar',
                     data: {
                         labels: sortedGloves,
-                        datasets: [{ label: 'Pares', data: sortedGloves.map(g => gloveModels[g]), backgroundColor: '#475569', borderRadius: 6 }]
+                        datasets: [{ label: 'Pares', data: sortedGloves.map(g => gloveModels[g]), backgroundColor: '#002f6c', borderRadius: 6 }]
                     },
                     options: {
                         indexAxis: 'y',
@@ -1694,7 +1701,7 @@
                         filteredDataset.filter(d => cleanAndFormatString(d.Setor) === s && d.Luva === type).reduce((a, c) => a + c.Quantidade, 0)
                     );
                     return {
-                        label: s,
+                        label: cfg.name,
                         data: dataPoints,
                         backgroundColor: cfg.solid,
                         borderRadius: 4
@@ -1824,7 +1831,7 @@
         }
 
         // ==========================================
-        //  ALERTAS E IMPORTAÇÃO
+        //  ALERTAS E MODAIS
         // ==========================================
         function showAlert(message, type = 'success') {
             const alertBox = document.getElementById('feedbackAlert');
