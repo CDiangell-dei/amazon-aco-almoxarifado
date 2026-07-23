@@ -1,0 +1,1873 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard & Lançamentos - Consumo de Luvas - Amazon Aço</title>
+    <!-- Tailwind CSS para design moderno e responsivo -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght=300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- Chart.js para visualizações profissionais -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Chart.js Datalabels Plugin -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+    <!-- SheetJS (xlsx) para leitura dinâmica de planilhas -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc; /* Slate 50 Light Corporate Base */
+            color: #0f172a;
+        }
+
+        :root {
+            --amazon-navy: #002f6c;
+            --amazon-red: #9c0e25;
+            --amazon-red-hover: #800b1d;
+        }
+
+        .element-hidden {
+            display: none !important;
+        }
+
+        .touch-active:active {
+            transform: scale(0.97);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        @media print {
+            body {
+                background-color: #ffffff !important;
+                color: #000000 !important;
+                font-size: 11px;
+            }
+            .no-print {
+                display: none !important;
+            }
+            .print-container {
+                width: 100% !important;
+                max-width: 100% !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                box-shadow: none !important;
+                background: transparent !important;
+            }
+            .print-card {
+                border: 1px solid #cbd5e1 !important;
+                box-shadow: none !important;
+                page-break-inside: avoid;
+                background-color: #ffffff !important;
+                color: #000000 !important;
+                margin-bottom: 1.25rem !important;
+            }
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen flex flex-col relative pb-10">
+
+    <!-- HEADER PRINCIPAL -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-40 no-print shadow-sm">
+        <div class="w-full lg:max-w-[85%] lg:mx-auto px-4 py-3 flex flex-col md:flex-row items-center justify-between gap-4">
+            
+            <div class="flex items-center justify-between w-full md:w-auto">
+                <div class="flex items-center space-x-3">
+                    <img id="amazonLogo" 
+                         src="https://www.amazonaco.com.br/wp-content/uploads/2024/02/IMG_4689.png" 
+                         alt="Amazon Aço" 
+                         class="h-9 md:h-11 w-auto object-contain"
+                         onerror="this.style.display='none'; document.getElementById('logoFallback').classList.remove('hidden');" />
+                    
+                    <div id="logoFallback" class="hidden flex items-center space-x-2">
+                        <div class="p-2 bg-[#9c0e25] rounded-xl text-white">
+                            <i data-lucide="shield" class="w-6 h-6"></i>
+                        </div>
+                        <div>
+                            <h1 class="text-base font-extrabold text-slate-900 leading-none">AMAZON AÇO</h1>
+                            <p class="text-[10px] tracking-widest text-slate-500 font-bold uppercase">Almoxarifado Alvorada</p>
+                        </div>
+                    </div>
+
+                    <div class="hidden sm:block h-7 w-px bg-slate-200 mx-1"></div>
+                    <div>
+                        <h2 class="text-xs md:text-sm font-extrabold text-slate-900 tracking-tight leading-none uppercase">PORTAL DE GESTÃO DE EPIs</h2>
+                        <p class="text-[10px] text-slate-500 font-semibold tracking-wide">MONITORAMENTO DE CONSUMO E LANÇAMENTOS EM TEMPO REAL</p>
+                    </div>
+                </div>
+
+                <button onclick="openConfigModal()" id="btnConnectionStatusMobile" class="md:hidden flex items-center space-x-1.5 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-full text-xs font-bold text-emerald-700">
+                    <span id="statusDotMobile" class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span id="statusTextMobile">Conectar</span>
+                </button>
+            </div>
+
+            <!-- Botões de Ação do Sistema -->
+            <div class="flex flex-wrap items-center justify-center md:justify-end gap-2.5 w-full md:w-auto">
+                <!-- Status do Supabase -->
+                <button onclick="openConfigModal()" id="btnConnectionStatus" class="hidden md:flex items-center space-x-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3.5 py-2 rounded-xl text-xs font-bold text-emerald-800 transition-all">
+                    <span id="statusDot" class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                    <span id="statusText">Supabase Conectado</span>
+                    <i data-lucide="settings" class="w-3.5 h-3.5 text-emerald-600"></i>
+                </button>
+
+                <!-- Gestão de Preços/Modelos -->
+                <button onclick="openPriceModal()" class="flex items-center space-x-2 bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-2 rounded-xl text-xs font-extrabold shadow-sm transition-all touch-active">
+                    <i data-lucide="dollar-sign" class="w-4 h-4 text-emerald-400"></i>
+                    <span>Tabela de Preços</span>
+                </button>
+
+                <!-- Alternar Visualização do Formulário -->
+                <button onclick="toggleFormVisibility()" class="flex items-center space-x-2 bg-[#002f6c] hover:bg-[#00204a] text-white px-3.5 py-2 rounded-xl text-xs font-extrabold shadow-sm transition-all touch-active">
+                    <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                    <span id="btnToggleFormText">Nova Retirada</span>
+                </button>
+
+                <!-- Fallback Excel -->
+                <button onclick="selectLocalFile()" class="flex items-center space-x-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 px-3.5 py-2 rounded-xl text-xs font-bold transition-all">
+                    <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-600"></i>
+                    <span id="btnUploadText">Excel</span>
+                </button>
+                <input type="file" id="legacyExcelFile" accept=".xlsx, .xls" class="hidden" onchange="importExcelLegacy(event)">
+
+                <!-- Impressão -->
+                <button onclick="window.print()" class="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl border border-slate-200 transition-all" title="Imprimir Relatório">
+                    <i data-lucide="printer" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow w-full lg:max-w-[85%] lg:mx-auto px-4 py-6 print-container space-y-6">
+
+        <!-- ALERTA DE FEEDBACK DINÂMICO -->
+        <div id="feedbackAlert" class="hidden w-full no-print">
+            <div id="alertContainer" class="p-4 rounded-2xl border flex items-center justify-between shadow-sm transition-all duration-300">
+                <div class="flex items-center space-x-3">
+                    <i id="alertIcon" data-lucide="info" class="w-5 h-5 flex-shrink-0"></i>
+                    <p id="alertMessage" class="text-xs md:text-sm font-bold leading-relaxed"></p>
+                </div>
+                <button onclick="hideAlert()" class="p-1 hover:bg-black/5 rounded-lg">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- FORMULÁRIO DE LANÇAMENTO -->
+        <section id="gloveFormSection" class="bg-white p-5 md:p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5 no-print transition-all">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div class="flex items-center space-x-3">
+                    <div class="p-2.5 bg-[#002f6c] rounded-xl text-white">
+                        <i data-lucide="plus-circle" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-sm md:text-base font-black text-slate-900 uppercase tracking-wide">Lançar Retirada no Almoxarifado</h2>
+                        <p class="text-[11px] font-bold text-slate-500">Sincroniza automaticamente com o Supabase e recalcula os indicadores</p>
+                    </div>
+                </div>
+                <span id="supabaseLiveBadge" class="text-[10px] text-emerald-800 font-extrabold bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Supabase Conectado
+                </span>
+            </div>
+
+            <form id="gloveEntryForm" onsubmit="handleFormSubmit(event)" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                
+                <!-- CAMPO 1: DATA -->
+                <div>
+                    <label for="dataRetirada" class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2 flex items-center justify-between">
+                        <span>Data de Retirada</span>
+                        <button type="button" onclick="setNowDate()" class="text-[11px] text-[#002f6c] font-bold hover:underline">Usar Hoje</button>
+                    </label>
+                    <input type="date" id="dataRetirada" required class="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#002f6c] focus:bg-white transition-all h-[46px]">
+                </div>
+
+                <!-- CAMPO 2: COLABORADOR -->
+                <div class="relative">
+                    <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2 flex items-center justify-between">
+                        <span>Nome do Colaborador</span>
+                        <span id="collabSourceBadge" class="text-[10px] text-emerald-600 font-extrabold hidden">6 Meses Carregados</span>
+                    </label>
+                    <div class="flex space-x-2">
+                        <select id="collabSelect" required class="flex-grow bg-slate-50 border border-slate-200 rounded-xl px-4 text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#002f6c] focus:bg-white transition-all cursor-pointer h-[46px]">
+                            <option value="" disabled selected>Selecione o colaborador...</option>
+                        </select>
+                        <button type="button" onclick="toggleCustomField('collab')" id="btnToggleCollab" class="bg-slate-100 hover:bg-slate-200 px-4 rounded-xl text-xs font-bold text-slate-700 border border-slate-200 transition-all flex items-center justify-center touch-active flex-shrink-0 h-[46px]" title="Adicionar Novo Colaborador">
+                            <i data-lucide="plus" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                    <input type="text" id="customCollabInput" placeholder="DIGITE O NOME DO NOVO COLABORADOR..." class="hidden w-full mt-2 bg-white border border-[#002f6c] rounded-xl py-3 px-4 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#002f6c] transition-all shadow-sm h-[46px] uppercase">
+                </div>
+
+                <!-- CAMPO 3: QUANTIDADE -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Quantidade (Pares)</label>
+                    <div class="flex items-center justify-between bg-slate-50 rounded-xl border border-slate-200 px-2 h-[46px]">
+                        <button type="button" onclick="adjustQuantity(-1)" class="w-8 h-8 bg-white hover:bg-slate-200 text-slate-800 border border-slate-200 rounded-lg flex items-center justify-center font-black transition-all touch-active shadow-sm flex-shrink-0">
+                            <i data-lucide="minus" class="w-4 h-4"></i>
+                        </button>
+                        <input type="number" id="quantidadeInput" value="1" min="1" required class="w-full bg-transparent text-center text-lg font-black text-slate-900 focus:outline-none px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
+                        <button type="button" onclick="adjustQuantity(1)" class="w-8 h-8 bg-white hover:bg-slate-200 text-slate-800 border border-slate-200 rounded-lg flex items-center justify-center font-black transition-all touch-active shadow-sm flex-shrink-0">
+                            <i data-lucide="plus" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- CAMPO 4: SETOR -->
+                <div class="md:col-span-2 lg:col-span-1">
+                    <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Setor</label>
+                    <div class="flex space-x-2">
+                        <select id="sectorSelect" required class="flex-grow bg-slate-50 border border-slate-200 rounded-xl px-4 text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#002f6c] focus:bg-white transition-all cursor-pointer h-[46px]">
+                            <option value="" disabled selected>Selecione o setor...</option>
+                        </select>
+                        <button type="button" onclick="toggleCustomField('sector')" id="btnToggleSector" class="bg-slate-100 hover:bg-slate-200 px-4 rounded-xl text-xs font-bold text-slate-700 border border-slate-200 transition-all flex items-center justify-center touch-active flex-shrink-0 h-[46px]" title="Adicionar Novo Setor">
+                            <i data-lucide="plus" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                    <input type="text" id="customSectorInput" placeholder="NOME DO NOVO SETOR..." class="hidden w-full mt-2 bg-white border border-[#002f6c] rounded-xl py-3 px-4 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#002f6c] transition-all shadow-sm h-[46px] uppercase">
+                </div>
+
+                <!-- CAMPO 5: MODELO DE LUVA -->
+                <div class="md:col-span-2">
+                    <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2 flex items-center justify-between">
+                        <span>Modelo de Luva</span>
+                        <button type="button" onclick="openPriceModal()" class="text-[11px] text-[#002f6c] font-bold hover:underline">Gerenciar Preços</button>
+                    </label>
+                    <div class="flex space-x-2">
+                        <select id="gloveSelect" required class="flex-grow bg-slate-50 border border-slate-200 rounded-xl px-4 text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#002f6c] focus:bg-white transition-all cursor-pointer h-[46px]">
+                            <option value="" disabled selected>Selecione a luva...</option>
+                        </select>
+                        <button type="button" onclick="openPriceModal()" id="btnManageGlovePrices" class="bg-slate-100 hover:bg-slate-200 px-4 rounded-xl text-xs font-bold text-slate-700 border border-slate-200 transition-all flex items-center justify-center touch-active flex-shrink-0 h-[46px]" title="Cadastrar / Atualizar Preço de Luva">
+                            <i data-lucide="plus" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- BOTÃO SUBMIT -->
+                <div class="md:col-span-2 lg:col-span-3 pt-2">
+                    <button type="submit" id="btnSubmit" class="w-full bg-[#9c0e25] hover:bg-[#800b1d] text-white py-3.5 rounded-xl font-black text-sm tracking-wider uppercase shadow-md transition-all flex items-center justify-center space-x-2 touch-active">
+                        <i data-lucide="send" class="w-4 h-4"></i>
+                        <span id="btnSubmitText">Salvar Registro no Supabase & Atualizar Dashboard</span>
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <!-- FILTROS DO DASHBOARD -->
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-4 no-print">
+            <div class="flex items-center space-x-2">
+                <i data-lucide="filter" class="w-4 h-4 text-[#002f6c]"></i>
+                <h3 class="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Filtros do Dashboard</h3>
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+                <div class="flex items-center space-x-2">
+                    <label for="filterYear" class="text-xs font-bold text-slate-600">Ano:</label>
+                    <select id="filterYear" onchange="applyGlobalFilters()" class="bg-slate-50 border border-slate-200 rounded-xl text-xs px-3 py-2 font-bold focus:outline-none text-slate-800 min-w-[110px]"></select>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <label for="filterMonth" class="text-xs font-bold text-slate-600">Mês:</label>
+                    <select id="filterMonth" onchange="applyGlobalFilters()" class="bg-slate-50 border border-slate-200 rounded-xl text-xs px-3 py-2 font-bold focus:outline-none text-slate-800">
+                        <option value="Todos">Todos os Meses</option>
+                        <option value="1">Janeiro</option>
+                        <option value="2">Fevereiro</option>
+                        <option value="3">Março</option>
+                        <option value="4">Abril</option>
+                        <option value="5">Maio</option>
+                        <option value="6">Junho</option>
+                        <option value="7">Julho</option>
+                        <option value="8">Agosto</option>
+                        <option value="9">Setembro</option>
+                        <option value="10">Outubro</option>
+                        <option value="11">Novembro</option>
+                        <option value="12">Dezembro</option>
+                    </select>
+                </div>
+                <button onclick="clearFilters()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 px-3 py-2 rounded-xl text-xs font-bold transition-all">
+                    Limpar
+                </button>
+            </div>
+        </div>
+
+        <!-- SEÇÃO: KPIs Principais -->
+        <div id="section-kpis" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Total Consumido</p>
+                    <h3 id="kpiTotalQty" class="text-3xl font-black text-slate-900">0</h3>
+                    <p class="text-[10px] text-slate-500 font-bold mt-1">Pares no período filtrado</p>
+                </div>
+                <div class="p-3 bg-slate-100 rounded-xl text-slate-600">
+                    <i data-lucide="package" class="w-6 h-6"></i>
+                </div>
+            </div>
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Custo Total Reajustado</p>
+                    <h3 id="kpiTotalCost" class="text-3xl font-black text-emerald-600">R$ 0,00</h3>
+                    <p class="text-[10px] text-slate-500 font-bold mt-1">Calculado por vigência temporal</p>
+                </div>
+                <div class="p-3 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl">
+                    <i data-lucide="dollar-sign" class="w-6 h-6"></i>
+                </div>
+            </div>
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Maior Setor</p>
+                    <h3 id="kpiTopSegment" class="text-2xl font-black text-slate-900">-</h3>
+                    <p class="text-[10px] text-slate-500 font-bold mt-1">Maior volume acumulado</p>
+                </div>
+                <div class="p-3 bg-amber-50 text-amber-700 border border-amber-200 rounded-xl">
+                    <i data-lucide="trending-up" class="w-6 h-6"></i>
+                </div>
+            </div>
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Média por Retirada</p>
+                    <h3 id="kpiAverage" class="text-3xl font-black text-slate-900">0</h3>
+                    <p class="text-[10px] text-slate-500 font-bold mt-1">Média de pares / entrega</p>
+                </div>
+                <div class="p-3 bg-slate-100 rounded-xl text-slate-600">
+                    <i data-lucide="hash" class="w-6 h-6"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- SEÇÃO: Cartões de Setores Gerados Dinamicamente do Supabase -->
+        <div id="section-sector-cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            <!-- Injetado dinamicamente via JS de acordo com os setores do Supabase -->
+        </div>
+
+        <!-- SEÇÃO: Comparativo YoY -->
+        <div id="section-yoy" class="bg-gradient-to-r from-[#002f6c] to-[#001e4d] p-5 rounded-2xl border border-blue-900 text-white shadow-sm">
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between border-b border-blue-800/80 pb-3 mb-4 gap-3">
+                <div>
+                    <h3 class="text-sm md:text-base font-extrabold text-white flex items-center gap-2">
+                        <i data-lucide="git-compare" class="text-blue-300 w-4 h-4"></i>
+                        Comparador Consolidado Anual (YoY)
+                    </h3>
+                </div>
+                <div class="flex items-center space-x-2 no-print">
+                    <select id="compYearA" onchange="runYoYComparison()" class="bg-blue-950 border border-blue-800 rounded-xl text-xs px-3 py-1.5 font-bold text-white focus:outline-none"></select>
+                    <span class="text-blue-300 font-extrabold text-xs">VS</span>
+                    <select id="compYearB" onchange="runYoYComparison()" class="bg-blue-950 border border-blue-800 rounded-xl text-xs px-3 py-1.5 font-bold text-white focus:outline-none"></select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 items-center">
+                <div class="bg-white/10 p-4 rounded-xl border border-white/10 backdrop-blur-sm">
+                    <h4 class="text-[10px] font-black text-blue-200 uppercase tracking-wider mb-2">Ano Ref. (<span class="lblYearA">A</span>)</h4>
+                    <div class="space-y-2 text-xs">
+                        <div class="flex justify-between"><span class="text-blue-200">Total Luvas:</span><span id="compQtyA" class="font-black text-white">0</span></div>
+                        <div class="flex justify-between"><span class="text-blue-200">Custo Total:</span><span id="compCostA" class="font-black text-white">R$ 0,00</span></div>
+                    </div>
+                </div>
+
+                <div class="flex flex-col justify-center items-center p-3 border border-white/10 rounded-xl bg-white/5 space-y-2">
+                    <div class="text-center">
+                        <p class="text-[10px] font-black text-blue-200 uppercase">Variação de Retiradas</p>
+                        <div id="compQtyDiff" class="text-sm font-black flex items-center justify-center space-x-1">
+                            <span id="compQtyIcon"></span>
+                            <span id="compQtyPct">0%</span>
+                        </div>
+                    </div>
+                    <div class="text-center border-t border-white/10 pt-2 w-full">
+                        <p class="text-[10px] font-black text-blue-200 uppercase">Variação Financeira</p>
+                        <div id="compCostDiff" class="text-sm font-black flex items-center justify-center space-x-1">
+                            <span id="compCostIcon"></span>
+                            <span id="compCostPct">0%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white/10 p-4 rounded-xl border border-white/10 backdrop-blur-sm flex flex-col justify-between h-full">
+                    <div class="mb-2">
+                        <h4 class="text-[10px] font-black text-blue-200 uppercase tracking-wider mb-2">Ano Comp. (<span class="lblYearB">B</span>)</h4>
+                        <div class="space-y-2 text-xs">
+                            <div class="flex justify-between"><span class="text-blue-200">Total Luvas:</span><span id="compQtyB" class="font-black text-white">0</span></div>
+                            <div class="flex justify-between"><span class="text-blue-200">Custo Total:</span><span id="compCostB" class="font-black text-white">R$ 0,00</span></div>
+                        </div>
+                    </div>
+                    <div class="h-20 w-full relative">
+                        <canvas id="chartYoYBar"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-5" id="chart-row-1">
+            <div id="section-chart-segment" class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                <div class="flex items-center justify-between mb-3">
+                    <h4 class="text-sm md:text-base font-extrabold text-slate-900">Participação por Setor</h4>
+                    <i data-lucide="pie-chart" class="w-4 h-4 text-slate-400 no-print"></i>
+                </div>
+                <div class="w-full h-[360px] relative">
+                    <canvas id="chartSegmento"></canvas>
+                </div>
+            </div>
+
+            <div id="section-chart-trend" class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                <div class="flex items-center justify-between mb-3">
+                    <h4 class="text-sm md:text-base font-extrabold text-slate-900" id="trendChartTitle">Evolução Mensal do Consumo</h4>
+                    <i data-lucide="trending-up" class="w-4 h-4 text-slate-400 no-print" id="trendChartIcon"></i>
+                </div>
+                <div class="w-full h-[360px] relative">
+                    <canvas id="chartLinhaConsumo"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-5" id="chart-row-2">
+            <div id="section-chart-top" class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                <div class="flex items-center justify-between mb-3">
+                    <h4 class="text-sm md:text-base font-extrabold text-slate-900">Modelos de Luva Solicitados</h4>
+                    <i data-lucide="bar-chart-2" class="w-4 h-4 text-slate-400 no-print"></i>
+                </div>
+                <div class="w-full h-[360px] relative">
+                    <canvas id="chartTopLuvas"></canvas>
+                </div>
+            </div>
+
+            <div id="section-chart-dist" class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                <div class="flex items-center justify-between mb-3">
+                    <h4 class="text-sm md:text-base font-extrabold text-slate-900">Distribuição do Consumo por Setor do EPI</h4>
+                    <i data-lucide="box" class="w-4 h-4 text-slate-400 no-print"></i>
+                </div>
+                <div class="w-full h-[360px] relative">
+                    <canvas id="chartSetores"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div id="section-table" class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="p-4 border-b border-slate-100 flex flex-col xl:flex-row xl:items-center justify-between gap-3 no-print">
+                <div>
+                    <h3 class="text-sm md:text-base font-extrabold text-slate-900">Registros Operacionais de Entregas</h3>
+                    <p class="text-xs text-slate-500 font-semibold">Mostrando 10 últimas por padrão. Use os filtros para buscar histórico completo.</p>
+                </div>
+                
+                <!-- CONTROLES DE FILTRO DA TABELA -->
+                <div class="flex flex-wrap items-center gap-2">
+                    <div class="relative w-full sm:w-auto flex-grow">
+                        <i data-lucide="search" class="w-4 h-4 absolute left-3 top-2.5 text-slate-400"></i>
+                        <input type="text" id="tableSearch" onkeyup="renderTable()" placeholder="Buscar colaborador ou luva..." class="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none font-bold focus:bg-white transition-all">
+                    </div>
+                    
+                    <select id="sectorFilter" onchange="renderTable()" class="w-full sm:w-auto bg-slate-50 border border-slate-200 rounded-xl text-xs px-3 py-1.5 font-bold text-slate-800 focus:outline-none transition-all">
+                        <option value="Todos">Todos os Setores</option>
+                    </select>
+
+                    <div class="flex items-center space-x-2 w-full sm:w-auto bg-slate-50 border border-slate-200 rounded-xl px-3 py-1">
+                        <span class="text-[10px] font-bold text-slate-500 uppercase">De</span>
+                        <input type="date" id="tableDateFrom" onchange="renderTable()" class="bg-transparent text-xs font-bold text-slate-800 focus:outline-none">
+                        <span class="text-[10px] font-bold text-slate-500 uppercase">Até</span>
+                        <input type="date" id="tableDateTo" onchange="renderTable()" class="bg-transparent text-xs font-bold text-slate-800 focus:outline-none">
+                    </div>
+
+                    <button onclick="clearTableFilters()" class="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 rounded-lg transition-all touch-active" title="Limpar Filtros da Tabela">
+                        <i data-lucide="filter-x" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 text-xs font-black uppercase">
+                            <th class="px-5 py-3">Data</th>
+                            <th class="px-5 py-3">Setor</th>
+                            <th class="px-5 py-3">Colaborador</th>
+                            <th class="px-5 py-3">Modelo Luva</th>
+                            <th class="px-5 py-3 text-center">Quantidade</th>
+                            <th class="px-5 py-3 text-right">Preço Unit. Vigente</th>
+                            <th class="px-5 py-3 text-right">Custo Total</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-slate-100 text-xs md:text-sm font-semibold">
+                    </tbody>
+                </table>
+            </div>
+            <div class="p-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500 font-bold no-print">
+                <span id="tableInfo">Mostrando registros...</span>
+                <span id="sourceLabel" class="text-slate-600 font-bold">Origem: Supabase Cloud</span>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- MODAL DE CADASTRO / REAJUSTE DE PREÇOS DE LUVAS -->
+    <div id="priceModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300 no-print">
+        <div class="bg-white w-full max-w-md rounded-3xl border border-slate-200 p-6 shadow-2xl space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div class="flex items-center space-x-2">
+                    <div class="p-2 bg-emerald-100 text-emerald-700 rounded-xl">
+                        <i data-lucide="tag" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-black text-slate-900">Gerenciar Tabela de Preços</h3>
+                        <p class="text-[10px] font-bold text-slate-500">Cadastre modelos ou atualize vigências</p>
+                    </div>
+                </div>
+                <button onclick="closePriceModal()" class="p-1 text-slate-400 hover:text-slate-600">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- OPÇÕES DE AÇÃO -->
+            <div class="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-xl text-xs font-bold">
+                <button id="btnActionExist" onclick="setPriceModalAction('EXIST')" class="py-2 rounded-lg bg-white shadow-sm text-[#002f6c] transition-all">Atualizar Preço</button>
+                <button id="btnActionNew" onclick="setPriceModalAction('NEW')" class="py-2 rounded-lg text-slate-600 hover:text-slate-900 transition-all">+ Novo Modelo</button>
+            </div>
+
+            <form id="priceForm" onsubmit="handlePriceFormSubmit(event)" class="space-y-3 pt-1">
+                
+                <!-- SELEÇÃO MODELO EXISTENTE -->
+                <div id="priceExistContainer">
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Modelo de Luva Existente</label>
+                    <select id="priceGloveSelect" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#002f6c]">
+                        <option value="" disabled selected>Selecione a luva para reajustar...</option>
+                    </select>
+                </div>
+
+                <!-- NOVO MODELO DE LUVA -->
+                <div id="priceNewContainer" class="hidden">
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Nome do Novo Modelo de Luva</label>
+                    <input type="text" id="priceNewGloveInput" placeholder="EX: LUVA KEVLAR CORTE 5" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#002f6c] uppercase">
+                </div>
+
+                <!-- PREÇO UNITÁRIO (R$) -->
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Valor Unitário do Par (R$)</label>
+                    <input type="number" id="priceValueInput" step="0.01" min="0" placeholder="0.00" required class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm font-black text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#002f6c]">
+                </div>
+
+                <!-- DATA INÍCIO DA VIGÊNCIA -->
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Início da Vigência deste Preço</label>
+                    <input type="date" id="priceStartDateInput" required class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#002f6c]">
+                    <p class="text-[10px] text-slate-400 mt-1">
+                        * Todas as entregas cadastradas a partir desta data considerarão este valor.
+                    </p>
+                </div>
+
+                <div class="flex items-center space-x-2 pt-2">
+                    <button type="submit" id="btnSavePrice" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold text-xs transition-all shadow-md">
+                        Salvar Vigência no Supabase
+                    </button>
+                    <button type="button" onclick="closePriceModal()" class="bg-slate-100 text-slate-700 hover:bg-slate-200 px-4 py-3 rounded-xl font-bold text-xs transition-all">
+                        Cancelar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL DE CONFIGURAÇÃO DO SUPABASE -->
+    <div id="configModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300 no-print">
+        <div class="bg-white w-full max-w-sm rounded-3xl border border-slate-200 p-6 shadow-2xl space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div class="flex items-center space-x-2">
+                    <i data-lucide="database" class="w-5 h-5 text-[#9c0e25]"></i>
+                    <h3 class="text-sm font-black text-slate-900">Conexão Supabase</h3>
+                </div>
+                <button onclick="closeConfigModal()" class="p-1 text-slate-400 hover:text-slate-600">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <p class="text-xs text-slate-500 leading-relaxed font-medium">
+                Insira as credenciais do seu projeto Supabase para que os lançamentos e gráficos atualizem em tempo real.
+            </p>
+
+            <div class="space-y-3">
+                <div>
+                    <label for="supabaseUrl" class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Project URL</label>
+                    <input type="text" id="supabaseUrl" placeholder="https://xyz.supabase.co" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-mono text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#002f6c] focus:bg-white">
+                </div>
+                <div>
+                    <label for="supabaseKey" class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Anon Key</label>
+                    <input type="password" id="supabaseKey" placeholder="eyJhbGciOiJIUzI1NiI..." class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-mono text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#002f6c] focus:bg-white">
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-2 pt-2">
+                <button onclick="saveSupabaseConfig()" class="flex-1 bg-[#002f6c] hover:bg-[#00204a] text-white py-3 rounded-xl font-bold text-xs transition-all shadow-md">
+                    Salvar e Conectar
+                </button>
+                <button onclick="closeConfigModal()" class="bg-slate-100 text-slate-700 hover:bg-slate-200 px-4 py-3 rounded-xl font-bold text-xs transition-all">
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+        Chart.register(ChartDataLabels);
+
+        // Estilos de Fonte Globais do ChartJS para Tema Claro
+        Chart.defaults.color = '#475569';
+        Chart.defaults.font.family = "'Inter', sans-serif";
+        Chart.defaults.font.size = 12; 
+        Chart.defaults.font.weight = 'bold';
+
+        // Paleta de Cores Dinâmica para Setores do Banco de Dados
+        const PALETTE = [
+            { solid: '#9c0e25', light: 'rgba(156, 14, 37, 0.1)', border: '#fca5a5', text: '#9c0e25' },
+            { solid: '#b49872', light: 'rgba(180, 152, 114, 0.15)', border: '#e6d9ce', text: '#8c6d46' },
+            { solid: '#1d4ed8', light: 'rgba(29, 78, 216, 0.1)', border: '#bfdbfe', text: '#1d4ed8' },
+            { solid: '#0d9488', light: 'rgba(13, 148, 136, 0.1)', border: '#99f6e4', text: '#0d9488' },
+            { solid: '#7c3aed', light: 'rgba(124, 58, 237, 0.1)', border: '#ddd6fe', text: '#7c3aed' },
+            { solid: '#ea580c', light: 'rgba(234, 88, 12, 0.1)', border: '#ffedd5', text: '#ea580c' },
+            { solid: '#64748b', light: 'rgba(100, 116, 139, 0.1)', border: '#cbd5e1', text: '#475569' }
+        ];
+
+        let supabaseClient = null;
+        let knownCollaborators = [];
+        let knownSectors = [];
+        let knownGloves = [];
+        let priceHistory = []; // Tabela preços_luvas
+
+        let isCustom = { collab: false, sector: false, glove: false };
+        let priceModalAction = 'EXIST'; // 'EXIST' ou 'NEW'
+
+        let rawDataset = [];
+        let filteredDataset = [];
+        let chartInstances = {};
+
+        // Helper Avançado: Formata para UPPERCASE e remove espaços extras
+        function cleanAndFormatString(str) {
+            if (!str) return '';
+            return String(str).trim().replace(/\s+/g, ' ').toUpperCase();
+        }
+
+        // Mapeamento Dinâmico de Estilo para Qualquer Setor Vindo do Supabase
+        function getSegmentConfig(setorRaw) {
+            const name = cleanAndFormatString(setorRaw) || 'OUTROS';
+            
+            // Regras de cores prioritárias por nome de marca
+            if (name.includes('AMAZON') || name.includes('AÇO') || name.includes('ACO')) {
+                return { name, ...PALETTE[0] };
+            } else if (name === 'MD' || name.includes('MD')) {
+                return { name, ...PALETTE[1] };
+            } else if (name.includes('SERRALHEIRO') || name.includes('SERRALHERIA')) {
+                return { name, ...PALETTE[2] };
+            }
+
+            // Atribuição sequencial para setores adicionais dinâmicos do banco
+            let hash = 0;
+            for (let i = 0; i < name.length; i++) {
+                hash = name.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            const colorIdx = Math.abs(hash) % (PALETTE.length - 3) + 3;
+            return { name, ...PALETTE[colorIdx] };
+        }
+
+        function setNowDate() {
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            document.getElementById('dataRetirada').value = now.toISOString().split('T')[0];
+            document.getElementById('priceStartDateInput').value = now.toISOString().split('T')[0];
+        }
+
+        function toggleFormVisibility() {
+            const formSection = document.getElementById('gloveFormSection');
+            const btnText = document.getElementById('btnToggleFormText');
+            if (formSection.classList.contains('hidden')) {
+                formSection.classList.remove('hidden');
+                btnText.innerText = "Ocultar Formulário";
+            } else {
+                formSection.classList.add('hidden');
+                btnText.innerText = "Nova Retirada";
+            }
+        }
+
+        // ==========================================
+        //  CÁLCULO TEMPORAL DE PREÇOS VIGENTES
+        // ==========================================
+        function getUnitPrice(tipoLuva, dataRetiradaStr) {
+            if (!tipoLuva) return 0;
+            const gloveClean = cleanAndFormatString(tipoLuva);
+            const targetDate = new Date(dataRetiradaStr + 'T12:00:00');
+
+            const matches = priceHistory.filter(p => {
+                const matchName = cleanAndFormatString(p.tipo_luva) === gloveClean;
+                const pDate = new Date(p.data_inicio + (p.data_inicio.includes('T') ? '' : 'T12:00:00'));
+                return matchName && pDate <= targetDate;
+            });
+
+            if (matches.length > 0) {
+                matches.sort((a, b) => new Date(b.data_inicio) - new Date(a.data_inicio));
+                return parseFloat(matches[0].preço || matches[0].preco) || 0;
+            }
+
+            const allForGlove = priceHistory.filter(p => cleanAndFormatString(p.tipo_luva) === gloveClean);
+            if (allForGlove.length > 0) {
+                allForGlove.sort((a, b) => new Date(a.data_inicio) - new Date(b.data_inicio));
+                return parseFloat(allForGlove[0].preço || allForGlove[0].preco) || 0;
+            }
+
+            return 15.0; // Valor padrão genérico
+        }
+
+        async function fetchPriceHistory() {
+            if (!supabaseClient) return;
+
+            try {
+                let { data, error } = await supabaseClient.from('preços_luvas').select('*').order('data_inicio', { ascending: false });
+                if (error) {
+                    const fallback = await supabaseClient.from('precos_luvas').select('*').order('data_inicio', { ascending: false });
+                    data = fallback.data;
+                    error = fallback.error;
+                }
+
+                if (!error && data) {
+                    priceHistory = data;
+                    const gloveMasterList = [...new Set(data.map(item => cleanAndFormatString(item.tipo_luva)).filter(Boolean))].sort();
+                    if (gloveMasterList.length > 0) {
+                        knownGloves = gloveMasterList;
+                    }
+                }
+            } catch (e) {
+                console.warn("Erro ao buscar tabela preços_luvas:", e);
+            }
+        }
+
+        // ==========================================
+        //  INICIALIZAÇÃO SUPABASE & BANCO
+        // ==========================================
+        function initSupabase() {
+            const defaultUrl = "https://wpwerdaiqyfhfhhioosp.supabase.co";
+            const defaultKey = "sb_publishable_BGgecij1uLNAr-2XWMTPCA_y8_lT9Go";
+
+            const savedUrl = localStorage.getItem('supabase_url') || defaultUrl;
+            const savedKey = localStorage.getItem('supabase_key') || defaultKey;
+
+            if (savedUrl && savedKey) {
+                try {
+                    supabaseClient = supabase.createClient(savedUrl, savedKey);
+                    updateConnectionStatus(true);
+                    loadSupabaseData();
+                } catch (e) {
+                    console.error("Erro ao inicializar Supabase:", e);
+                    updateConnectionStatus(false);
+                    loadFallbackLocalData();
+                }
+            } else {
+                updateConnectionStatus(false);
+                loadFallbackLocalData();
+            }
+        }
+
+        function updateConnectionStatus(isConnected) {
+            const dot = document.getElementById('statusDot');
+            const text = document.getElementById('statusText');
+            const dotM = document.getElementById('statusDotMobile');
+            const textM = document.getElementById('statusTextMobile');
+            const badge = document.getElementById('supabaseLiveBadge');
+            const sourceLbl = document.getElementById('sourceLabel');
+
+            if (isConnected) {
+                if (dot) dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500";
+                if (text) text.innerText = "Supabase Conectado";
+                if (dotM) dotM.className = "w-2.5 h-2.5 rounded-full bg-emerald-500";
+                if (textM) textM.innerText = "Conectado";
+                if (badge) badge.className = "text-[10px] text-emerald-800 font-extrabold bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full flex items-center gap-1.5";
+                if (badge) badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Supabase Conectado`;
+                if (sourceLbl) sourceLbl.innerText = "Origem: Supabase Cloud (Tempo Real)";
+            } else {
+                if (dot) dot.className = "w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse";
+                if (text) text.innerText = "Conectar Supabase";
+                if (dotM) dotM.className = "w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse";
+                if (textM) textM.innerText = "Conectar";
+                if (badge) badge.className = "text-[10px] text-amber-800 font-extrabold bg-amber-50 border border-amber-200 px-3 py-1 rounded-full flex items-center gap-1.5";
+                if (badge) badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Modo Local / Excel`;
+                if (sourceLbl) sourceLbl.innerText = "Origem: Cache Local / Excel";
+            }
+        }
+
+        function openConfigModal() {
+            const defaultUrl = "https://wpwerdaiqyfhfhhioosp.supabase.co";
+            const defaultKey = "sb_publishable_BGgecij1uLNAr-2XWMTPCA_y8_lT9Go";
+
+            const modal = document.getElementById('configModal');
+            document.getElementById('supabaseUrl').value = localStorage.getItem('supabase_url') || defaultUrl;
+            document.getElementById('supabaseKey').value = localStorage.getItem('supabase_key') || defaultKey;
+            modal.classList.remove('pointer-events-none', 'opacity-0');
+        }
+
+        function closeConfigModal() {
+            const modal = document.getElementById('configModal');
+            modal.classList.add('pointer-events-none', 'opacity-0');
+        }
+
+        function saveSupabaseConfig() {
+            const url = document.getElementById('supabaseUrl').value.trim();
+            const key = document.getElementById('supabaseKey').value.trim();
+
+            if (!url || !key) {
+                showAlert("Por favor, preencha a URL e a Key do Supabase.", "warning");
+                return;
+            }
+
+            localStorage.setItem('supabase_url', url);
+            localStorage.setItem('supabase_key', key);
+
+            closeConfigModal();
+            initSupabase();
+            showAlert("Configurações do Supabase salvas!", "success");
+        }
+
+        async function loadSupabaseData() {
+            if (!supabaseClient) return;
+
+            try {
+                await fetchPriceHistory();
+
+                let allData = [];
+                let startIndex = 0;
+                const pageSize = 1000;
+                let fetching = true;
+
+                while(fetching) {
+                    const { data, error } = await supabaseClient
+                        .from('luvas')
+                        .select('*')
+                        .order('data_retirada', { ascending: false })
+                        .range(startIndex, startIndex + pageSize - 1);
+
+                    if (error) {
+                        console.warn("Erro ao buscar dados no Supabase:", error.message);
+                        showAlert(`Aviso Supabase: ${error.message}`, "warning");
+                        if (allData.length === 0) loadFallbackLocalData();
+                        fetching = false;
+                        break;
+                    }
+
+                    if (data && data.length > 0) {
+                        allData = allData.concat(data);
+                        startIndex += pageSize;
+                        if (data.length < pageSize) fetching = false;
+                    } else {
+                        fetching = false;
+                    }
+                }
+
+                if (allData.length > 0) {
+                    rawDataset = allData.map(item => {
+                        let d = item.data_retirada ? new Date(item.data_retirada) : new Date();
+                        if (isNaN(d.getTime())) d = new Date();
+
+                        const dateStr = d.toISOString().split('T')[0];
+                        const gName = cleanAndFormatString(item.tipo_luva);
+                        const sName = cleanAndFormatString(item.setor);
+                        const cName = cleanAndFormatString(item.nome_colaborador);
+
+                        const qty = parseFloat(item.quantidade) || 1;
+                        const unitPrice = getUnitPrice(gName, dateStr);
+                        const cost = qty * unitPrice;
+
+                        return {
+                            Data: dateStr,
+                            Setor: sName,
+                            Colaborador: cName,
+                            Luva: gName,
+                            Quantidade: qty,
+                            UnitPrice: unitPrice,
+                            Custo: cost,
+                            Year: d.getFullYear(),
+                            Month: d.getMonth() + 1
+                        };
+                    });
+
+                    // Colaboradores dos últimos 6 meses
+                    const sixMonthsAgo = new Date();
+                    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+                    
+                    const recentEntries = allData.filter(i => {
+                        let dt = i.data_retirada ? new Date(i.data_retirada) : new Date(i.created_at);
+                        return dt >= sixMonthsAgo;
+                    });
+                    
+                    knownCollaborators = [...new Set(recentEntries.map(i => cleanAndFormatString(i.nome_colaborador)).filter(Boolean))].sort();
+                    
+                    // Extrai dinamicamente todos os setores e luvas encontrados no Supabase
+                    knownSectors = [...new Set(allData.map(i => cleanAndFormatString(i.setor)).filter(Boolean))].sort();
+                    
+                    const glovesFromTransactions = [...new Set(allData.map(i => cleanAndFormatString(i.tipo_luva)).filter(Boolean))];
+                    glovesFromTransactions.forEach(g => {
+                        if (!knownGloves.includes(g)) knownGloves.push(g);
+                    });
+                    knownGloves.sort();
+
+                    document.getElementById('collabSourceBadge').classList.remove('hidden');
+
+                    populateDropdowns();
+                    populateYearSelectors();
+                    applyGlobalFilters();
+                    showAlert(`Carregados ${allData.length} lançamentos do Supabase!`, "success");
+                } else {
+                    loadFallbackLocalData();
+                }
+            } catch (err) {
+                console.error(err);
+                loadFallbackLocalData();
+            }
+        }
+
+        function loadFallbackLocalData() {
+            const savedData = localStorage.getItem("glove_dataset");
+            if (savedData) {
+                try {
+                    rawDataset = JSON.parse(savedData);
+                    knownCollaborators = [...new Set(rawDataset.map(d => d.Colaborador))].filter(Boolean).sort();
+                    populateDropdowns();
+                    populateYearSelectors();
+                    applyGlobalFilters();
+                    return;
+                } catch(e){}
+            }
+
+            rawDataset = [];
+            knownCollaborators = [];
+            populateDropdowns();
+            populateYearSelectors();
+            applyGlobalFilters();
+        }
+
+        // ==========================================
+        //  MODAL DE PREÇOS / MODELOS DE LUVA
+        // ==========================================
+        function openPriceModal() {
+            populatePriceGloveDropdown();
+            setPriceModalAction('EXIST');
+            setNowDate();
+            
+            const modal = document.getElementById('priceModal');
+            modal.classList.remove('pointer-events-none', 'opacity-0');
+        }
+
+        function closePriceModal() {
+            const modal = document.getElementById('priceModal');
+            modal.classList.add('pointer-events-none', 'opacity-0');
+        }
+
+        function setPriceModalAction(action) {
+            priceModalAction = action;
+            const btnExist = document.getElementById('btnActionExist');
+            const btnNew = document.getElementById('btnActionNew');
+            const containerExist = document.getElementById('priceExistContainer');
+            const containerNew = document.getElementById('priceNewContainer');
+
+            if (action === 'EXIST') {
+                btnExist.className = "py-2 rounded-lg bg-white shadow-sm text-[#002f6c] font-black transition-all";
+                btnNew.className = "py-2 rounded-lg text-slate-600 font-bold hover:text-slate-900 transition-all";
+                containerExist.classList.remove('hidden');
+                containerNew.classList.add('hidden');
+            } else {
+                btnNew.className = "py-2 rounded-lg bg-white shadow-sm text-[#002f6c] font-black transition-all";
+                btnExist.className = "py-2 rounded-lg text-slate-600 font-bold hover:text-slate-900 transition-all";
+                containerNew.classList.remove('hidden');
+                containerExist.classList.add('hidden');
+            }
+        }
+
+        function populatePriceGloveDropdown() {
+            const sel = document.getElementById('priceGloveSelect');
+            if (!sel) return;
+            sel.innerHTML = '<option value="" disabled selected>Selecione a luva para reajustar...</option>';
+            knownGloves.forEach(g => sel.add(new Option(g, g)));
+        }
+
+        async function handlePriceFormSubmit(e) {
+            e.preventDefault();
+            
+            let finalGlove = '';
+            if (priceModalAction === 'EXIST') {
+                finalGlove = cleanAndFormatString(document.getElementById('priceGloveSelect').value);
+            } else {
+                finalGlove = cleanAndFormatString(document.getElementById('priceNewGloveInput').value);
+            }
+
+            const valInput = parseFloat(document.getElementById('priceValueInput').value);
+            const startDate = document.getElementById('priceStartDateInput').value;
+
+            if (!finalGlove || isNaN(valInput) || !startDate) {
+                showAlert("Por favor, preencha o modelo, o preço e a data de início da vigência.", "warning");
+                return;
+            }
+
+            const btnSave = document.getElementById('btnSavePrice');
+            btnSave.disabled = true;
+            btnSave.innerText = "Salvando no Supabase...";
+
+            const startIso = new Date(startDate + 'T12:00:00').toISOString();
+
+            const payload = {
+                tipo_luva: finalGlove,
+                preço: valInput,
+                preco: valInput,
+                data_inicio: startIso
+            };
+
+            if (supabaseClient) {
+                try {
+                    let { error } = await supabaseClient.from('preços_luvas').insert([payload]);
+                    if (error) {
+                        const fb = await supabaseClient.from('precos_luvas').insert([{
+                            tipo_luva: finalGlove,
+                            preco: valInput,
+                            data_inicio: startIso
+                        }]);
+                        error = fb.error;
+                    }
+
+                    if (error) {
+                        showAlert(`Erro ao salvar preço: ${error.message}`, "error");
+                    } else {
+                        showAlert(`Preço de R$ ${valInput.toFixed(2)} registrado para "${finalGlove}" a partir de ${startDate}!`, "success");
+                        closePriceModal();
+                        document.getElementById('priceValueInput').value = '';
+                        document.getElementById('priceNewGloveInput').value = '';
+                        
+                        await loadSupabaseData(); // Recalcula o dashboard inteiro!
+                    }
+                } catch (err) {
+                    showAlert("Erro de conexão com o Supabase.", "error");
+                }
+            } else {
+                priceHistory.unshift({ tipo_luva: finalGlove, preço: valInput, preco: valInput, data_inicio: startDate });
+                if (!knownGloves.includes(finalGlove)) knownGloves.push(finalGlove);
+                knownGloves.sort();
+                populateDropdowns();
+                applyGlobalFilters();
+                showAlert(`Preço registrado localmente para ${finalGlove}!`, "success");
+                closePriceModal();
+            }
+
+            btnSave.disabled = false;
+            btnSave.innerText = "Salvar Vigência no Supabase";
+        }
+
+        // ==========================================
+        //  UI DROPDOWNS E TOGGLES
+        // ==========================================
+        function populateDropdowns() {
+            const collabSel = document.getElementById('collabSelect');
+            const sectorSel = document.getElementById('sectorSelect');
+            const gloveSel = document.getElementById('gloveSelect');
+
+            const currCollab = collabSel.value;
+            const currSector = sectorSel.value;
+            const currGlove = gloveSel.value;
+
+            collabSel.innerHTML = '<option value="" disabled selected>Selecione o colaborador...</option>';
+            knownCollaborators.forEach(c => collabSel.add(new Option(c, c)));
+            if (currCollab && knownCollaborators.includes(currCollab)) collabSel.value = currCollab;
+
+            sectorSel.innerHTML = '<option value="" disabled selected>Selecione o setor...</option>';
+            knownSectors.forEach(s => sectorSel.add(new Option(s, s)));
+            if (currSector && knownSectors.includes(currSector)) sectorSel.value = currSector;
+
+            gloveSel.innerHTML = '<option value="" disabled selected>Selecione a luva...</option>';
+            knownGloves.forEach(g => gloveSel.add(new Option(g, g)));
+            if (currGlove && knownGloves.includes(currGlove)) gloveSel.value = currGlove;
+
+            const tableSectorSel = document.getElementById('sectorFilter');
+            if (tableSectorSel) {
+                const currTableSector = tableSectorSel.value;
+                tableSectorSel.innerHTML = '<option value="Todos">Todos os Setores</option>';
+                knownSectors.forEach(s => tableSectorSel.add(new Option(s, s)));
+                if (currTableSector && knownSectors.includes(currTableSector)) tableSectorSel.value = currTableSector;
+            }
+        }
+
+        function toggleCustomField(type) {
+            isCustom[type] = !isCustom[type];
+            const selectEl = document.getElementById(`${type}Select`);
+            const inputEl = document.getElementById(`custom${type.charAt(0).toUpperCase() + type.slice(1)}Input`);
+            const btnEl = document.getElementById(`btnToggle${type.charAt(0).toUpperCase() + type.slice(1)}`);
+            
+            if (isCustom[type]) {
+                selectEl.classList.add('hidden');
+                selectEl.required = false;
+                inputEl.classList.remove('hidden');
+                inputEl.required = true;
+                inputEl.focus();
+                
+                btnEl.innerHTML = '<i data-lucide="x" class="w-5 h-5"></i>';
+                btnEl.className = 'bg-[#9c0e25] text-white hover:bg-[#800b1d] px-4 rounded-xl text-xs font-bold border border-[#800b1d] transition-all flex items-center justify-center touch-active flex-shrink-0 h-[46px]';
+            } else {
+                selectEl.classList.remove('hidden');
+                selectEl.required = true;
+                inputEl.classList.add('hidden');
+                inputEl.required = false;
+                inputEl.value = '';
+                
+                btnEl.innerHTML = '<i data-lucide="plus" class="w-5 h-5"></i>';
+                btnEl.className = 'bg-slate-100 hover:bg-slate-200 px-4 rounded-xl text-xs font-bold text-slate-700 border border-slate-200 transition-all flex items-center justify-center touch-active flex-shrink-0 h-[46px]';
+            }
+            lucide.createIcons();
+        }
+
+        function adjustQuantity(delta) {
+            const input = document.getElementById('quantidadeInput');
+            let val = parseInt(input.value) || 1;
+            val += delta;
+            if (val < 1) val = 1;
+            input.value = val;
+        }
+
+        // ==========================================
+        //  SUBMISSÃO DO FORMULÁRIO DE RETIRADAS
+        // ==========================================
+        async function handleFormSubmit(event) {
+            event.preventDefault();
+
+            let rawColaborador = isCustom.collab ? document.getElementById('customCollabInput').value : document.getElementById('collabSelect').value;
+            let rawSector = isCustom.sector ? document.getElementById('customSectorInput').value : document.getElementById('sectorSelect').value;
+            let rawGlove = document.getElementById('gloveSelect').value;
+            
+            const dataRetirada = document.getElementById('dataRetirada').value;
+            const quantidade = parseInt(document.getElementById('quantidadeInput').value) || 1;
+
+            const nomeColaborador = cleanAndFormatString(rawColaborador);
+            const finalSector = cleanAndFormatString(rawSector);
+            const finalGlove = cleanAndFormatString(rawGlove);
+
+            if (!nomeColaborador || !finalSector || !finalGlove || !dataRetirada) {
+                showAlert("Por favor, preencha ou selecione todos os campos.", "warning");
+                return;
+            }
+
+            const btnSubmit = document.getElementById('btnSubmit');
+            const btnText = document.getElementById('btnSubmitText');
+            btnSubmit.disabled = true;
+            btnText.innerText = "Gravando...";
+
+            const dataSegura = new Date(dataRetirada + 'T12:00:00').toISOString();
+
+            const payload = {
+                nome_colaborador: nomeColaborador,
+                tipo_luva: finalGlove,
+                quantidade: quantidade,
+                setor: finalSector,
+                data_retirada: dataSegura
+            };
+
+            if (supabaseClient) {
+                try {
+                    const { data, error } = await supabaseClient
+                        .from('luvas')
+                        .insert([payload]);
+
+                    if (error) {
+                        showAlert(`Erro ao gravar no Supabase: ${error.message}`, "error");
+                    } else {
+                        showAlert(`Sucesso! ${quantidade}x ${finalGlove} salvas para ${nomeColaborador}!`, "success");
+                        resetFormAfterSubmit();
+                        await loadSupabaseData();
+                    }
+                } catch (err) {
+                    showAlert("Erro na conexão com o Supabase.", "error");
+                }
+            } else {
+                const d = new Date(dataRetirada + 'T12:00:00');
+                const unitPrice = getUnitPrice(finalGlove, dataRetirada);
+                const cost = quantidade * unitPrice;
+
+                rawDataset.unshift({
+                    Data: d.toISOString().split('T')[0],
+                    Setor: finalSector,
+                    Colaborador: nomeColaborador,
+                    Luva: finalGlove,
+                    Quantidade: quantidade,
+                    UnitPrice: unitPrice,
+                    Custo: cost,
+                    Year: d.getFullYear(),
+                    Month: d.getMonth() + 1
+                });
+
+                localStorage.setItem("glove_dataset", JSON.stringify(rawDataset));
+                
+                if(!knownCollaborators.includes(nomeColaborador)) knownCollaborators.push(nomeColaborador);
+                if(!knownSectors.includes(finalSector)) knownSectors.push(finalSector);
+                if(!knownGloves.includes(finalGlove)) knownGloves.push(finalGlove);
+                populateDropdowns();
+
+                populateYearSelectors();
+                applyGlobalFilters();
+                showAlert(`Salvo localmente! ${quantidade}x ${finalGlove} salvas.`, "success");
+                resetFormAfterSubmit();
+            }
+
+            btnSubmit.disabled = false;
+            btnText.innerText = "Salvar Registro no Supabase & Atualizar Dashboard";
+        }
+
+        function resetFormAfterSubmit() {
+            if(isCustom.collab) toggleCustomField('collab');
+            if(isCustom.sector) toggleCustomField('sector');
+            
+            document.getElementById('collabSelect').value = '';
+            document.getElementById('sectorSelect').value = '';
+            document.getElementById('gloveSelect').value = '';
+            document.getElementById('quantidadeInput').value = 1;
+            setNowDate();
+        }
+
+        // ==========================================
+        //  REPRESENTAÇÕES E FILTROS DO DASHBOARD
+        // ==========================================
+        function populateYearSelectors() {
+            const filterYear = document.getElementById('filterYear');
+            const compYearA = document.getElementById('compYearA');
+            const compYearB = document.getElementById('compYearB');
+
+            if (!filterYear || !compYearA || !compYearB) return;
+
+            const years = [...new Set(rawDataset.map(item => item.Year))].sort((a,b) => b - a);
+            filterYear.innerHTML = '<option value="Todos">Todos os Anos</option>';
+            compYearA.innerHTML = '';
+            compYearB.innerHTML = '';
+
+            years.forEach((yr, index) => {
+                const opt = document.createElement('option');
+                opt.value = yr;
+                opt.text = yr;
+                filterYear.appendChild(opt);
+
+                const optA = document.createElement('option');
+                optA.value = yr;
+                optA.text = yr;
+                if (index === 1 || years.length === 1) optA.selected = true;
+                compYearA.appendChild(optA);
+
+                const optB = document.createElement('option');
+                optB.value = yr;
+                optB.text = yr;
+                if (index === 0) optB.selected = true;
+                compYearB.appendChild(optB);
+            });
+        }
+
+        function applyGlobalFilters() {
+            const yearSelEl = document.getElementById('filterYear');
+            const monthSelEl = document.getElementById('filterMonth');
+
+            if (!yearSelEl || !monthSelEl) return;
+
+            const yearSel = yearSelEl.value;
+            const monthSel = monthSelEl.value;
+
+            filteredDataset = rawDataset.filter(item => {
+                const matchesYear = yearSel === 'Todos' || item.Year.toString() === yearSel;
+                const matchesMonth = monthSel === 'Todos' || item.Month.toString() === monthSel;
+                return matchesYear && matchesMonth;
+            });
+
+            updateDashboard();
+        }
+
+        function clearFilters() {
+            document.getElementById('filterYear').value = 'Todos';
+            document.getElementById('filterMonth').value = 'Todos';
+            applyGlobalFilters();
+        }
+
+        function updateDashboard() {
+            calculateKPIs();
+            renderSectorSummaryCards();
+            renderCharts();
+            renderTable();
+            runYoYComparison();
+        }
+
+        function calculateKPIs() {
+            let totalQty = 0;
+            let totalCost = 0;
+            let sectorCounts = {};
+
+            filteredDataset.forEach(item => {
+                totalQty += item.Quantidade;
+                totalCost += item.Custo;
+                const sName = cleanAndFormatString(item.Setor);
+                sectorCounts[sName] = (sectorCounts[sName] || 0) + item.Quantidade;
+            });
+
+            document.getElementById('kpiTotalQty').innerText = totalQty.toLocaleString('pt-BR');
+            document.getElementById('kpiTotalCost').innerText = totalCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+            
+            let topSector = '-';
+            let maxVal = -1;
+            Object.keys(sectorCounts).forEach(key => {
+                if (sectorCounts[key] > maxVal && sectorCounts[key] > 0) {
+                    maxVal = sectorCounts[key];
+                    topSector = key;
+                }
+            });
+            document.getElementById('kpiTopSegment').innerText = topSector;
+
+            const average = filteredDataset.length > 0 ? (totalQty / filteredDataset.length) : 0;
+            document.getElementById('kpiAverage').innerText = average.toFixed(1).replace('.', ',');
+        }
+
+        // GERAÇÃO 100% DINÂMICA DOS CARDS DE SETOR
+        function renderSectorSummaryCards() {
+            const container = document.getElementById('section-sector-cards');
+            if (!container) return;
+            container.innerHTML = '';
+
+            const summaries = {};
+
+            filteredDataset.forEach(item => {
+                const sKey = cleanAndFormatString(item.Setor);
+                if (!summaries[sKey]) {
+                    summaries[sKey] = { qty: 0, cost: 0, luvs: {} };
+                }
+                summaries[sKey].qty += item.Quantidade;
+                summaries[sKey].cost += item.Custo;
+                summaries[sKey].luvs[item.Luva] = (summaries[sKey].luvs[item.Luva] || 0) + item.Quantidade;
+            });
+
+            const sectorsToDisplay = Object.keys(summaries).sort();
+
+            if (sectorsToDisplay.length === 0) {
+                container.innerHTML = `<div class="col-span-full bg-white p-4 rounded-2xl border border-slate-200 text-center text-xs text-slate-400 font-bold">Nenhum dado de setor encontrado para o período.</div>`;
+                return;
+            }
+
+            sectorsToDisplay.forEach(secKey => {
+                const cfg = getSegmentConfig(secKey);
+                const secObj = summaries[secKey];
+
+                let favGlove = '-';
+                let maxQty = 0;
+                Object.keys(secObj.luvs).forEach(luv => {
+                    if (secObj.luvs[luv] > maxQty) {
+                        maxQty = secObj.luvs[luv];
+                        favGlove = luv;
+                    }
+                });
+
+                const card = document.createElement('div');
+                card.className = "bg-white p-4 rounded-2xl border-l-4 border-y border-r border-slate-200 shadow-sm flex flex-col justify-between min-h-[130px]";
+                card.style.borderLeftColor = cfg.solid;
+
+                card.innerHTML = `
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="flex items-center text-xs font-black" style="color: ${cfg.solid}">
+                            <span class="w-2 h-2 rounded-full mr-2" style="background-color: ${cfg.solid}"></span>${cfg.name}
+                        </span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 text-xs font-bold text-slate-600 mb-1">
+                        <div>Consumo: <span class="text-slate-900 font-black">${secObj.qty.toLocaleString('pt-BR')}</span></div>
+                        <div class="text-right">Custo Est: <span class="text-emerald-600 font-black">${secObj.cost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span></div>
+                    </div>
+                    <div class="text-[10px] text-slate-500 border-t border-slate-100 pt-2 flex items-center justify-between">
+                        <span>EPI Comum:</span>
+                        <span class="font-extrabold text-slate-700 truncate max-w-[120px]" title="${favGlove}">${favGlove}</span>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function runYoYComparison() {
+            const yearA = document.getElementById('compYearA').value;
+            const yearB = document.getElementById('compYearB').value;
+
+            document.querySelectorAll('.lblYearA').forEach(el => el.innerText = yearA || 'A');
+            document.querySelectorAll('.lblYearB').forEach(el => el.innerText = yearB || 'B');
+
+            if (!yearA || !yearB) return;
+
+            const dataYearA = rawDataset.filter(item => item.Year.toString() === yearA);
+            const dataYearB = rawDataset.filter(item => item.Year.toString() === yearB);
+
+            const qtyA = dataYearA.reduce((sum, item) => sum + item.Quantidade, 0);
+            const qtyB = dataYearB.reduce((sum, item) => sum + item.Quantidade, 0);
+
+            const costA = dataYearA.reduce((sum, item) => sum + item.Custo, 0);
+            const costB = dataYearB.reduce((sum, item) => sum + item.Custo, 0);
+
+            document.getElementById('compQtyA').innerText = qtyA.toLocaleString('pt-BR');
+            document.getElementById('compQtyB').innerText = qtyB.toLocaleString('pt-BR');
+            document.getElementById('compCostA').innerText = costA.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+            document.getElementById('compCostB').innerText = costB.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+            updateYoYMetric('compQtyPct', 'compQtyIcon', 'compQtyDiff', qtyA, qtyB);
+            updateYoYMetric('compCostPct', 'compCostIcon', 'compCostDiff', costA, costB);
+
+            renderYoYMiniChart(yearA, yearB, qtyA, qtyB);
+        }
+
+        function updateYoYMetric(pctId, iconId, diffId, valA, valB) {
+            let pct = valA > 0 ? ((valB - valA) / valA) * 100 : (valB > 0 ? 100 : 0);
+            document.getElementById(pctId).innerText = `${pct >= 0 ? '+' : ''}${pct.toFixed(1).replace('.', ',')}%`;
+
+            const diffEl = document.getElementById(diffId);
+            const iconEl = document.getElementById(iconId);
+
+            if (diffEl && iconEl) {
+                if (pct > 0) {
+                    diffEl.className = "text-xs font-black flex items-center text-red-300";
+                    iconEl.innerHTML = '<i data-lucide="trending-up" class="w-3.5 h-3.5"></i>';
+                } else if (pct < 0) {
+                    diffEl.className = "text-xs font-black flex items-center text-emerald-300";
+                    iconEl.innerHTML = '<i data-lucide="trending-down" class="w-3.5 h-3.5"></i>';
+                } else {
+                    diffEl.className = "text-xs font-black flex items-center text-blue-200";
+                    iconEl.innerHTML = '<i data-lucide="minus" class="w-3.5 h-3.5"></i>';
+                }
+            }
+            lucide.createIcons();
+        }
+
+        function renderYoYMiniChart(yearA, yearB, qtyA, qtyB) {
+            if (chartInstances.yoy) chartInstances.yoy.destroy();
+            const canvasEl = document.getElementById('chartYoYBar');
+            if (!canvasEl) return;
+
+            const ctx = canvasEl.getContext('2d');
+            chartInstances.yoy = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: [yearA, yearB],
+                    datasets: [{
+                        label: 'Total Luvas',
+                        data: [qtyA, qtyB],
+                        backgroundColor: ['#60a5fa', '#f87171'],
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        datalabels: {
+                            anchor: 'end',
+                            align: 'top',
+                            color: '#ffffff',
+                            font: { weight: 'bold', size: 10 }
+                        }
+                    },
+                    scales: {
+                        y: { display: false },
+                        x: { grid: { display: false }, ticks: { color: '#ffffff', font: { size: 10, weight: 'bold' } } }
+                    }
+                }
+            });
+        }
+
+        // ==========================================
+        //  REPRESENTAÇÃO GRÁFICA GERAL DINÂMICA
+        // ==========================================
+        function renderCharts() {
+            ['segment', 'line', 'top', 'group'].forEach(key => {
+                if (chartInstances[key]) chartInstances[key].destroy();
+            });
+
+            const monthSel = document.getElementById('filterMonth').value;
+
+            let sectorTotals = {};
+            let gloveModels = {};
+            let monthlyTrend = {};
+
+            filteredDataset.forEach(item => {
+                const sName = cleanAndFormatString(item.Setor);
+                sectorTotals[sName] = (sectorTotals[sName] || 0) + item.Quantidade;
+
+                gloveModels[item.Luva] = (gloveModels[item.Luva] || 0) + item.Quantidade;
+
+                const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+                let monthLabel = item.Year && item.Month ? `${months[item.Month - 1]}/${item.Year}` : 'Sem Data';
+
+                if (!monthlyTrend[monthLabel]) {
+                    monthlyTrend[monthLabel] = {};
+                }
+                monthlyTrend[monthLabel][sName] = (monthlyTrend[monthLabel][sName] || 0) + item.Quantidade;
+            });
+
+            // 1. ROSCA PARTICIPAÇÃO POR SETOR DINÂMICO
+            const canvasSeg = document.getElementById('chartSegmento');
+            if (canvasSeg) {
+                let activeLabels = Object.keys(sectorTotals).sort();
+                let activeData = activeLabels.map(s => sectorTotals[s]);
+                let activeColors = activeLabels.map(s => getSegmentConfig(s).solid);
+
+                chartInstances.segment = new Chart(canvasSeg.getContext('2d'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: activeLabels,
+                        datasets: [{ data: activeData, backgroundColor: activeColors, borderWidth: 2 }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'bottom', labels: { color: '#334155', font: { size: 11, weight: 'bold' } } },
+                            datalabels: {
+                                color: '#ffffff',
+                                font: { weight: 'bold', size: 12 },
+                                formatter: (value, ctx) => {
+                                    let sum = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                    return sum > 0 ? `${(value * 100 / sum).toFixed(1)}%` : '';
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // 2. TENDÊNCIA OU COLABORADORES
+            const canvasLine = document.getElementById('chartLinhaConsumo');
+            if (canvasLine) {
+                const ctxLine = canvasLine.getContext('2d');
+                if (monthSel !== 'Todos') {
+                    let employeeQty = {};
+                    filteredDataset.forEach(item => {
+                        employeeQty[item.Colaborador] = (employeeQty[item.Colaborador] || 0) + item.Quantidade;
+                    });
+
+                    const sortedEmployees = Object.keys(employeeQty).sort((a, b) => employeeQty[b] - employeeQty[a]).slice(0, 15);
+
+                    chartInstances.line = new Chart(ctxLine, {
+                        type: 'bar',
+                        data: {
+                            labels: sortedEmployees,
+                            datasets: [{ label: 'Pares', data: sortedEmployees.map(e => employeeQty[e]), backgroundColor: '#002f6c', borderRadius: 6 }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false },
+                                datalabels: { anchor: 'end', align: 'top', color: '#0f172a', formatter: (val) => `${val} un` }
+                            },
+                            scales: {
+                                y: { grid: { color: '#e2e8f0' }, ticks: { color: '#475569' } },
+                                x: { grid: { display: false }, ticks: { color: '#475569', font: { size: 11, weight: 'bold' }, maxRotation: 45 } }
+                            }
+                        }
+                    });
+                } else {
+                    const sortedMonths = Object.keys(monthlyTrend);
+                    const allSectors = Object.keys(sectorTotals).sort();
+
+                    const datasetsLine = allSectors.map(s => {
+                        const cfg = getSegmentConfig(s);
+                        return {
+                            label: s,
+                            data: sortedMonths.map(m => monthlyTrend[m][s] || 0),
+                            borderColor: cfg.solid,
+                            backgroundColor: cfg.solid
+                        };
+                    });
+
+                    chartInstances.line = new Chart(ctxLine, {
+                        type: 'line',
+                        data: {
+                            labels: sortedMonths,
+                            datasets: datasetsLine
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { position: 'bottom', labels: { color: '#334155', font: { size: 11, weight: 'bold' } } },
+                                datalabels: { display: false }
+                            },
+                            scales: {
+                                y: { grid: { color: '#e2e8f0' }, ticks: { color: '#475569' } },
+                                x: { grid: { display: false }, ticks: { color: '#475569' } }
+                            }
+                        }
+                    });
+                }
+            }
+
+            // 3. TOP LUVAS
+            const canvasTop = document.getElementById('chartTopLuvas');
+            if (canvasTop) {
+                const sortedGloves = Object.keys(gloveModels).sort((a,b) => gloveModels[b] - gloveModels[a]);
+                chartInstances.top = new Chart(canvasTop.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: sortedGloves,
+                        datasets: [{ label: 'Pares', data: sortedGloves.map(g => gloveModels[g]), backgroundColor: '#475569', borderRadius: 6 }]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            datalabels: { anchor: 'end', align: 'right', color: '#0f172a' }
+                        },
+                        scales: {
+                            x: { grid: { color: '#e2e8f0' }, ticks: { color: '#475569' } },
+                            y: { grid: { display: false }, ticks: { color: '#334155', font: { size: 11, weight: 'bold' } } }
+                        }
+                    }
+                });
+            }
+
+            // 4. AGRUPADO POR SETOR DO EPI DINÂMICO
+            const canvasSetores = document.getElementById('chartSetores');
+            if (canvasSetores) {
+                const gloveTypes = Object.keys(gloveModels).slice(0, 5);
+                const activeSectors = Object.keys(sectorTotals).sort();
+
+                const datasetsGroup = activeSectors.map(s => {
+                    const cfg = getSegmentConfig(s);
+                    const dataPoints = gloveTypes.map(type => 
+                        filteredDataset.filter(d => cleanAndFormatString(d.Setor) === s && d.Luva === type).reduce((a, c) => a + c.Quantidade, 0)
+                    );
+                    return {
+                        label: s,
+                        data: dataPoints,
+                        backgroundColor: cfg.solid,
+                        borderRadius: 4
+                    };
+                });
+
+                chartInstances.group = new Chart(canvasSetores.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: gloveTypes,
+                        datasets: datasetsGroup
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'bottom', labels: { color: '#334155', font: { size: 11, weight: 'bold' } } },
+                            datalabels: {
+                                display: true,
+                                labels: {
+                                    value: {
+                                        anchor: 'end',
+                                        align: 'top',
+                                        color: '#0f172a',
+                                        formatter: (val) => val > 0 ? `${val} un` : ''
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: { grid: { color: '#e2e8f0' }, ticks: { color: '#475569' } },
+                            x: { grid: { display: false }, ticks: { color: '#334155', font: { size: 12, weight: 'bold' } } }
+                        }
+                    }
+                });
+            }
+        }
+
+        // ==========================================
+        //  RENDERIZAÇÃO DA TABELA DETALHADA
+        // ==========================================
+        function clearTableFilters() {
+            document.getElementById('tableSearch').value = '';
+            document.getElementById('sectorFilter').value = 'Todos';
+            document.getElementById('tableDateFrom').value = '';
+            document.getElementById('tableDateTo').value = '';
+            renderTable();
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('tableBody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            const searchValue = document.getElementById('tableSearch').value.toLowerCase().trim();
+            const sectorFilter = document.getElementById('sectorFilter').value;
+            const dateFrom = document.getElementById('tableDateFrom').value;
+            const dateTo = document.getElementById('tableDateTo').value;
+
+            const hasActiveFilter = searchValue !== '' || sectorFilter !== 'Todos' || dateFrom !== '' || dateTo !== '';
+
+            let baseDataForTable = hasActiveFilter ? rawDataset : filteredDataset;
+            let filtered = baseDataForTable;
+
+            if (hasActiveFilter) {
+                filtered = baseDataForTable.filter(item => {
+                    const matchesSearch = searchValue === '' || item.Colaborador.toLowerCase().includes(searchValue) || item.Luva.toLowerCase().includes(searchValue);
+                    const matchesSector = sectorFilter === 'Todos' || item.Setor === sectorFilter;
+                    
+                    let matchesDate = true;
+                    if (dateFrom || dateTo) {
+                        const itemDate = new Date(item.Data + 'T12:00:00'); 
+                        if (dateFrom) {
+                            const dFrom = new Date(dateFrom + 'T00:00:00');
+                            if (itemDate < dFrom) matchesDate = false;
+                        }
+                        if (dateTo) {
+                            const dTo = new Date(dateTo + 'T23:59:59');
+                            if (itemDate > dTo) matchesDate = false;
+                        }
+                    }
+
+                    return matchesSearch && matchesSector && matchesDate;
+                });
+            }
+
+            const tableRows = hasActiveFilter ? filtered : filtered.slice(0, 10);
+
+            if (tableRows.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="px-5 py-8 text-center text-slate-400">Nenhum registro encontrado.</td></tr>`;
+                document.getElementById('tableInfo').innerText = "Nenhum registro correspondente.";
+                return;
+            }
+
+            tableRows.forEach(item => {
+                const config = getSegmentConfig(item.Setor);
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition-all border-b border-slate-100 text-slate-700";
+
+                let niceDate = item.Data;
+                if (item.Data && item.Data.includes('-')) {
+                    const parts = item.Data.split('-');
+                    if (parts.length === 3) niceDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+                }
+
+                tr.innerHTML = `
+                    <td class="px-5 py-3.5 text-xs text-slate-500 font-bold">${niceDate}</td>
+                    <td class="px-5 py-3.5">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black" style="background-color: ${config.light}; color: ${config.text}; border: 1px solid ${config.border}">
+                            ${config.name}
+                        </span>
+                    </td>
+                    <td class="px-5 py-3.5 font-bold text-slate-900">${item.Colaborador}</td>
+                    <td class="px-5 py-3.5 text-slate-600">${item.Luva}</td>
+                    <td class="px-5 py-3.5 text-center font-black text-slate-900">${item.Quantidade}</td>
+                    <td class="px-5 py-3.5 text-right font-bold text-slate-600">${item.UnitPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                    <td class="px-5 py-3.5 text-right font-black text-emerald-600">${item.Custo.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            if (hasActiveFilter) {
+                document.getElementById('tableInfo').innerHTML = `<span class="text-[#002f6c]">Exibindo ${tableRows.length} registros encontrados no histórico.</span>`;
+            } else {
+                document.getElementById('tableInfo').innerText = `Exibindo as 10 últimas retiradas recentes.`;
+            }
+        }
+
+        // ==========================================
+        //  ALERTAS E MODAIS
+        // ==========================================
+        function showAlert(message, type = 'success') {
+            const alertBox = document.getElementById('feedbackAlert');
+            const alertContainer = document.getElementById('alertContainer');
+            const alertMsg = document.getElementById('alertMessage');
+            if (!alertBox || !alertMsg) return;
+
+            alertMsg.innerText = message;
+            alertContainer.className = "p-4 rounded-2xl border flex items-center justify-between shadow-sm transition-all duration-300 ";
+
+            if (type === 'success') {
+                alertContainer.classList.add('bg-emerald-50', 'border-emerald-200', 'text-emerald-800');
+            } else if (type === 'warning') {
+                alertContainer.classList.add('bg-amber-50', 'border-amber-200', 'text-amber-800');
+            } else {
+                alertContainer.classList.add('bg-red-50', 'border-red-200', 'text-red-800');
+            }
+
+            alertBox.classList.remove('hidden');
+            setTimeout(() => { hideAlert(); }, 6000);
+        }
+
+        function hideAlert() {
+            document.getElementById('feedbackAlert').classList.add('hidden');
+        }
+
+        function selectLocalFile() {
+            document.getElementById('legacyExcelFile').click();
+        }
+
+        function importExcelLegacy(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const json = XLSX.utils.sheet_to_json(sheet);
+
+                    rawDataset = json.map(r => {
+                        const d = r.Data ? new Date(r.Data) : new Date();
+                        const dateStr = d.toISOString().split('T')[0];
+                        const colabName = cleanAndFormatString(r.Colaborador || r.Funcionario);
+                        const luvaType = cleanAndFormatString(r.Luva || r.Modelo);
+                        const setorName = cleanAndFormatString(r.Setor || r.Segmento);
+
+                        if(!knownCollaborators.includes(colabName)) knownCollaborators.push(colabName);
+                        if(!knownSectors.includes(setorName)) knownSectors.push(setorName);
+                        if(!knownGloves.includes(luvaType)) knownGloves.push(luvaType);
+
+                        const qty = parseFloat(r.Quantidade) || 1;
+                        const unitPrice = getUnitPrice(luvaType, dateStr);
+                        const cost = parseFloat(r.Custo) || (qty * unitPrice);
+
+                        return {
+                            Data: dateStr,
+                            Setor: setorName,
+                            Colaborador: colabName,
+                            Luva: luvaType,
+                            Quantidade: qty,
+                            UnitPrice: unitPrice,
+                            Custo: cost,
+                            Year: d.getFullYear(),
+                            Month: d.getMonth() + 1
+                        };
+                    });
+
+                    localStorage.setItem("glove_dataset", JSON.stringify(rawDataset));
+                    populateDropdowns();
+                    populateYearSelectors();
+                    applyGlobalFilters();
+                    showAlert(`Planilha "${file.name}" carregada com sucesso!`, 'success');
+                } catch(err) {
+                    showAlert("Erro ao ler o arquivo Excel.", "error");
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // ==========================================
+        //  AO CARREGAR A PÁGINA
+        // ==========================================
+        window.onload = function() {
+            setNowDate();
+            populateDropdowns();
+            initSupabase();
+        };
+    </script>
+</body>
+</html>
