@@ -655,6 +655,7 @@
         let rawDataset = [];
         let filteredDataset = [];
         let chartInstances = {};
+        let autoRefreshInterval = null;
 
         // Helper Avançado: Formata para UPPERCASE e remove espaços extras
         function cleanAndFormatString(str) {
@@ -728,13 +729,14 @@
                 return parseFloat(allForGlove[0].preço || allForGlove[0].preco) || 0;
             }
 
-            return 15.0; // Valor padrão genérico
+            return 15.0; // Valor padrão genérico se o banco falhar
         }
 
         async function fetchPriceHistory() {
             if (!supabaseClient) return;
 
             try {
+                // Tenta puxar a coluna "preço" com cedilha. Em caso de erro, tenta sem cedilha.
                 let { data, error } = await supabaseClient.from('preços_luvas').select('*').order('data_inicio', { ascending: false });
                 if (error) {
                     const fallback = await supabaseClient.from('precos_luvas').select('*').order('data_inicio', { ascending: false });
@@ -757,29 +759,6 @@
         // ==========================================
         //  INICIALIZAÇÃO SUPABASE & BANCO
         // ==========================================
-        function initSupabase() {
-            const defaultUrl = "https://wpwerdaiqyfhfhhioosp.supabase.co";
-            const defaultKey = "sb_publishable_BGgecij1uLNAr-2XWMTPCA_y8_lT9Go";
-
-            const savedUrl = localStorage.getItem('supabase_url') || defaultUrl;
-            const savedKey = localStorage.getItem('supabase_key') || defaultKey;
-
-            if (savedUrl && savedKey) {
-                try {
-                    supabaseClient = supabase.createClient(savedUrl, savedKey);
-                    updateConnectionStatus(true);
-                    loadSupabaseData();
-                } catch (e) {
-                    console.error("Erro ao inicializar Supabase:", e);
-                    updateConnectionStatus(false);
-                    loadFallbackLocalData();
-                }
-            } else {
-                updateConnectionStatus(false);
-                loadFallbackLocalData();
-            }
-        }
-
         function updateConnectionStatus(isConnected) {
             const dot = document.getElementById('statusDot');
             const text = document.getElementById('statusText');
@@ -805,6 +784,66 @@
                 if (badge) badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Modo Local / Excel`;
                 if (sourceLbl) sourceLbl.innerText = "Origem: Cache Local / Excel";
             }
+        }
+
+        function initSupabase() {
+            const defaultUrl = "https://wpwerdaiqyfhfhhioosp.supabase.co";
+            const defaultKey = "sb_publishable_BGgecij1uLNAr-2XWMTPCA_y8_lT9Go";
+
+            const savedUrl = localStorage.getItem('supabase_url') || defaultUrl;
+            const savedKey = localStorage.getItem('supabase_key') || defaultKey;
+
+            if (savedUrl && savedKey) {
+                try {
+                    supabaseClient = supabase.createClient(savedUrl, savedKey, {
+                        auth: { persistSession: false }
+                    });
+
+                    // Desabilita conexões WebSocket para evitar SecurityError no ambiente Canvas
+                    if (supabaseClient && supabaseClient.realtime) {
+                        supabaseClient.realtime.connect = function() {};
+                        try { supabaseClient.realtime.disconnect(); } catch(e){}
+                    }
+
+                    updateConnectionStatus(true);
+                    loadSupabaseData();
+                    
+                    // Configura o Timer de 1 Minuto
+                    setupAutoRefresh();
+                } catch (e) {
+                    console.error("Erro ao inicializar Supabase:", e);
+                    updateConnectionStatus(false);
+                    loadFallbackLocalData();
+                }
+            } else {
+                updateConnectionStatus(false);
+                loadFallbackLocalData();
+            }
+        }
+
+        function setupAutoRefresh() {
+            if (!supabaseClient) return;
+
+            // Cronômetro de Segurança (Atualiza a cada 60 segundos / 1 minuto)
+            if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+            
+            autoRefreshInterval = setInterval(() => {
+                console.log("🔄 Atualização periódica de 1 minuto executada silenciosamente...");
+                fetchPriceHistory().then(() => {
+                    let startIndex = 0;
+                    const pageSize = 1000;
+                    supabaseClient
+                        .from('luvas')
+                        .select('*')
+                        .order('data_retirada', { ascending: false })
+                        .range(startIndex, startIndex + pageSize - 1)
+                        .then(({ data, error }) => {
+                            if (!error && data && data.length > 0) {
+                                processIncomingData(data, false);
+                            }
+                        });
+                });
+            }, 60000); // 60.000 ms = 1 minuto
         }
 
         function openConfigModal() {
@@ -837,6 +876,65 @@
             closeConfigModal();
             initSupabase();
             showAlert("Configurações do Supabase salvas!", "success");
+        }
+
+        function processIncomingData(allData, showAlerts = true) {
+             rawDataset = allData.map(item => {
+                let d = item.data_retirada ? new Date(item.data_retirada) : new Date();
+                if (isNaN(d.getTime())) d = new Date();
+
+                const dateStr = d.toISOString().split('T')[0];
+                const gName = cleanAndFormatString(item.tipo_luva);
+                const sName = cleanAndFormatString(item.setor);
+                const cName = cleanAndFormatString(item.nome_colaborador);
+
+                const qty = parseFloat(item.quantidade) || 1;
+                const unitPrice = getUnitPrice(gName, dateStr);
+                const cost = qty * unitPrice;
+
+                return {
+                    Data: dateStr,
+                    Setor: sName,
+                    Colaborador: cName,
+                    Luva: gName,
+                    Quantidade: qty,
+                    UnitPrice: unitPrice,
+                    Custo: cost,
+                    Year: d.getFullYear(),
+                    Month: d.getMonth() + 1
+                };
+            });
+
+            // Colaboradores dos últimos 6 meses
+            const sixMonthsAgo = new Date();
+            sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+            
+            const recentEntries = allData.filter(i => {
+                let dt = i.data_retirada ? new Date(i.data_retirada) : new Date(i.created_at);
+                return dt >= sixMonthsAgo;
+            });
+            
+            knownCollaborators = [...new Set(recentEntries.map(i => cleanAndFormatString(i.nome_colaborador)).filter(Boolean))].sort();
+            
+            // Extrai dinamicamente todos os setores e luvas encontrados no Supabase
+            knownSectors = [...new Set(allData.map(i => cleanAndFormatString(i.setor)).filter(Boolean))].sort();
+            
+            const glovesFromTransactions = [...new Set(allData.map(i => cleanAndFormatString(i.tipo_luva)).filter(Boolean))];
+            glovesFromTransactions.forEach(g => {
+                if (!knownGloves.includes(g)) knownGloves.push(g);
+            });
+            knownGloves.sort();
+
+            const badge = document.getElementById('collabSourceBadge');
+            if(badge) badge.classList.remove('hidden');
+
+            populateDropdowns();
+            populateYearSelectors();
+            applyGlobalFilters();
+            
+            if (showAlerts) {
+                showAlert(`Carregados ${allData.length} lançamentos do Supabase!`, "success");
+            }
         }
 
         async function loadSupabaseData() {
@@ -875,58 +973,7 @@
                 }
 
                 if (allData.length > 0) {
-                    rawDataset = allData.map(item => {
-                        let d = item.data_retirada ? new Date(item.data_retirada) : new Date();
-                        if (isNaN(d.getTime())) d = new Date();
-
-                        const dateStr = d.toISOString().split('T')[0];
-                        const gName = cleanAndFormatString(item.tipo_luva);
-                        const sName = cleanAndFormatString(item.setor);
-                        const cName = cleanAndFormatString(item.nome_colaborador);
-
-                        const qty = parseFloat(item.quantidade) || 1;
-                        const unitPrice = getUnitPrice(gName, dateStr);
-                        const cost = qty * unitPrice;
-
-                        return {
-                            Data: dateStr,
-                            Setor: sName,
-                            Colaborador: cName,
-                            Luva: gName,
-                            Quantidade: qty,
-                            UnitPrice: unitPrice,
-                            Custo: cost,
-                            Year: d.getFullYear(),
-                            Month: d.getMonth() + 1
-                        };
-                    });
-
-                    // Colaboradores dos últimos 6 meses
-                    const sixMonthsAgo = new Date();
-                    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-                    
-                    const recentEntries = allData.filter(i => {
-                        let dt = i.data_retirada ? new Date(i.data_retirada) : new Date(i.created_at);
-                        return dt >= sixMonthsAgo;
-                    });
-                    
-                    knownCollaborators = [...new Set(recentEntries.map(i => cleanAndFormatString(i.nome_colaborador)).filter(Boolean))].sort();
-                    
-                    // Extrai dinamicamente todos os setores e luvas encontrados no Supabase
-                    knownSectors = [...new Set(allData.map(i => cleanAndFormatString(i.setor)).filter(Boolean))].sort();
-                    
-                    const glovesFromTransactions = [...new Set(allData.map(i => cleanAndFormatString(i.tipo_luva)).filter(Boolean))];
-                    glovesFromTransactions.forEach(g => {
-                        if (!knownGloves.includes(g)) knownGloves.push(g);
-                    });
-                    knownGloves.sort();
-
-                    document.getElementById('collabSourceBadge').classList.remove('hidden');
-
-                    populateDropdowns();
-                    populateYearSelectors();
-                    applyGlobalFilters();
-                    showAlert(`Carregados ${allData.length} lançamentos do Supabase!`, "success");
+                    processIncomingData(allData, true);
                 } else {
                     loadFallbackLocalData();
                 }
@@ -1024,36 +1071,27 @@
 
             const startIso = new Date(startDate + 'T12:00:00').toISOString();
 
+            const payload = {
+                tipo_luva: finalGlove,
+                preço: valInput, 
+                data_inicio: startIso
+            };
+
             if (supabaseClient) {
                 try {
-                    // Envia exatamente as colunas exatas da tabela 'preços_luvas' (sem colunas extras inexistentes)
-                    let payloadExact = {
-                        tipo_luva: finalGlove,
-                        preço: valInput,
-                        data_inicio: startIso
-                    };
+                    let { error } = await supabaseClient.from('preços_luvas').insert([payload]);
 
-                    let { error } = await supabaseClient.from('preços_luvas').insert([payloadExact]);
-
-                    // Fallback caso a coluna no banco esteja sem cedilha (preco)
                     if (error) {
-                        console.warn("Tentativa 1 com 'preço' falhou, tentando variante...", error.message);
-                        let altA = await supabaseClient.from('preços_luvas').insert([{
+                        const fallbackPayload = {
                             tipo_luva: finalGlove,
                             preco: valInput,
                             data_inicio: startIso
-                        }]);
-                        
-                        if (altA.error) {
-                            let altB = await supabaseClient.from('precos_luvas').insert([payloadExact]);
-                            error = altB.error;
-                        } else {
-                            error = null;
-                        }
+                        };
+                        const fb = await supabaseClient.from('precos_luvas').insert([fallbackPayload]);
+                        error = fb.error;
                     }
 
                     if (error) {
-                        console.error("Erro no Supabase ao inserir preço:", error);
                         showAlert(`Erro ao salvar preço: ${error.message}`, "error");
                     } else {
                         showAlert(`Preço de R$ ${valInput.toFixed(2)} registrado para "${finalGlove}" a partir de ${startDate}!`, "success");
@@ -1061,14 +1099,13 @@
                         document.getElementById('priceValueInput').value = '';
                         document.getElementById('priceNewGloveInput').value = '';
                         
-                        await loadSupabaseData(); // Recalcula o dashboard inteiro e reatualiza dropdowns!
+                        await loadSupabaseData(); 
                     }
                 } catch (err) {
-                    console.error("Exceção:", err);
-                    showAlert("Erro de conexão com o Supabase ao salvar preço.", "error");
+                    showAlert("Erro de conexão com o Supabase.", "error");
                 }
             } else {
-                priceHistory.unshift({ tipo_luva: finalGlove, preço: valInput, preco: valInput, data_inicio: startDate });
+                priceHistory.unshift({ tipo_luva: finalGlove, preço: valInput, data_inicio: startDate });
                 if (!knownGloves.includes(finalGlove)) knownGloves.push(finalGlove);
                 knownGloves.sort();
                 populateDropdowns();
@@ -1344,7 +1381,6 @@
             document.getElementById('kpiAverage').innerText = average.toFixed(1).replace('.', ',');
         }
 
-        // GERAÇÃO 100% DINÂMICA DOS CARDS DE SETOR
         function renderSectorSummaryCards() {
             const container = document.getElementById('section-sector-cards');
             if (!container) return;
@@ -1788,7 +1824,7 @@
         }
 
         // ==========================================
-        //  ALERTAS E MODAIS
+        //  ALERTAS E IMPORTAÇÃO
         // ==========================================
         function showAlert(message, type = 'success') {
             const alertBox = document.getElementById('feedbackAlert');
