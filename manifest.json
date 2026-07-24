@@ -1,7 +1,7 @@
 {
 "name": "Almoxarifado Amazon Aço",
 "short_name": "Almoxarifado",
-"start_url": "./registro_luvas.html",
+"start_url": "./index.html",
 "display": "standalone",
 "background_color": "#0f172a",
 "theme_color": "#9c0e25",
