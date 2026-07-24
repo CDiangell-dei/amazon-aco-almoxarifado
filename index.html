@@ -310,56 +310,106 @@
         </div>
 
         <!-- SEÇÃO: Comparativo YoY -->
-        <div id="section-yoy" class="bg-gradient-to-r from-[#002f6c] to-[#001e4d] p-5 rounded-2xl border border-blue-900 text-white shadow-sm">
-            <div class="flex flex-col lg:flex-row lg:items-center justify-between border-b border-blue-800/80 pb-3 mb-4 gap-3">
-                <div>
-                    <h3 class="text-sm md:text-base font-extrabold text-white flex items-center gap-2">
-                        <i data-lucide="git-compare" class="text-blue-300 w-4 h-4"></i>
-                        Comparador Consolidado Anual (YoY)
-                    </h3>
+        <div id="section-yoy" class="bg-slate-900 p-5 md:p-6 rounded-2xl border border-slate-800 text-white shadow-xl space-y-5">
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between border-b border-slate-800/80 pb-4 gap-3">
+                <div class="flex items-center space-x-3">
+                    <div class="p-2.5 bg-[#002f6c] rounded-xl text-blue-300 border border-blue-800/50 shadow-md">
+                        <i data-lucide="git-compare" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-sm md:text-base font-extrabold text-white tracking-wide">Comparador Consolidado Anual (YoY)</h3>
+                        <p class="text-[11px] font-bold text-slate-400">Análise de desempenho acumulado e variação orçamentária entre exercícios</p>
+                    </div>
                 </div>
-                <div class="flex items-center space-x-2 no-print">
-                    <select id="compYearA" onchange="runYoYComparison()" class="bg-blue-950 border border-blue-800 rounded-xl text-xs px-3 py-1.5 font-bold text-white focus:outline-none"></select>
-                    <span class="text-blue-300 font-extrabold text-xs">VS</span>
-                    <select id="compYearB" onchange="runYoYComparison()" class="bg-blue-950 border border-blue-800 rounded-xl text-xs px-3 py-1.5 font-bold text-white focus:outline-none"></select>
+                <div class="flex items-center space-x-2 bg-slate-950 p-1.5 rounded-xl border border-slate-800 no-print">
+                    <span class="text-[10px] font-black text-slate-400 uppercase px-2">Anos:</span>
+                    <select id="compYearA" onchange="runYoYComparison()" class="bg-slate-900 border border-slate-800 rounded-lg text-xs px-3 py-1.5 font-extrabold text-blue-300 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"></select>
+                    <span class="text-slate-500 font-extrabold text-xs">VS</span>
+                    <select id="compYearB" onchange="runYoYComparison()" class="bg-slate-900 border border-slate-800 rounded-lg text-xs px-3 py-1.5 font-extrabold text-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"></select>
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 items-center">
-                <div class="bg-white/10 p-4 rounded-xl border border-white/10 backdrop-blur-sm">
-                    <h4 class="text-[10px] font-black text-blue-200 uppercase tracking-wider mb-2">Ano Ref. (<span class="lblYearA">A</span>)</h4>
-                    <div class="space-y-2 text-xs">
-                        <div class="flex justify-between"><span class="text-blue-200">Total Luvas:</span><span id="compQtyA" class="font-black text-white">0</span></div>
-                        <div class="flex justify-between"><span class="text-blue-200">Custo Total:</span><span id="compCostA" class="font-black text-white">R$ 0,00</span></div>
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+                <!-- ANO A (REFERÊNCIA) -->
+                <div class="lg:col-span-3 bg-slate-950/80 p-4 rounded-xl border border-slate-800 flex flex-col justify-between">
+                    <div class="flex items-center justify-between border-b border-slate-800/80 pb-2 mb-3">
+                        <span class="text-[10px] font-black text-blue-400 uppercase tracking-wider flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                            Ano Base (<span class="lblYearA">A</span>)
+                        </span>
+                        <i data-lucide="calendar" class="w-3.5 h-3.5 text-slate-500"></i>
                     </div>
-                </div>
-
-                <div class="flex flex-col justify-center items-center p-3 border border-white/10 rounded-xl bg-white/5 space-y-2">
-                    <div class="text-center">
-                        <p class="text-[10px] font-black text-blue-200 uppercase">Variação de Retiradas</p>
-                        <div id="compQtyDiff" class="text-sm font-black flex items-center justify-center space-x-1">
-                            <span id="compQtyIcon"></span>
-                            <span id="compQtyPct">0%</span>
+                    <div class="space-y-3">
+                        <div>
+                            <p class="text-[10px] font-bold text-slate-400 uppercase">Total Consumido</p>
+                            <p id="compQtyA" class="text-2xl font-black text-white mt-0.5">0</p>
+                            <p class="text-[10px] text-slate-500 font-bold">pares entregues</p>
                         </div>
-                    </div>
-                    <div class="text-center border-t border-white/10 pt-2 w-full">
-                        <p class="text-[10px] font-black text-blue-200 uppercase">Variação Financeira</p>
-                        <div id="compCostDiff" class="text-sm font-black flex items-center justify-center space-x-1">
-                            <span id="compCostIcon"></span>
-                            <span id="compCostPct">0%</span>
+                        <div class="border-t border-slate-800/60 pt-2">
+                            <p class="text-[10px] font-bold text-slate-400 uppercase">Custo Orçamentário</p>
+                            <p id="compCostA" class="text-lg font-black text-blue-300 mt-0.5">R$ 0,00</p>
                         </div>
                     </div>
                 </div>
 
-                <div class="bg-white/10 p-4 rounded-xl border border-white/10 backdrop-blur-sm flex flex-col justify-between h-full">
-                    <div class="mb-2">
-                        <h4 class="text-[10px] font-black text-blue-200 uppercase tracking-wider mb-2">Ano Comp. (<span class="lblYearB">B</span>)</h4>
-                        <div class="space-y-2 text-xs">
-                            <div class="flex justify-between"><span class="text-blue-200">Total Luvas:</span><span id="compQtyB" class="font-black text-white">0</span></div>
-                            <div class="flex justify-between"><span class="text-blue-200">Custo Total:</span><span id="compCostB" class="font-black text-white">R$ 0,00</span></div>
+                <!-- PAINEL DE VARIAÇÕES (MÉTRICAS CENTRAIS) -->
+                <div class="lg:col-span-5 bg-slate-950/90 p-4 rounded-xl border border-slate-800 flex flex-col justify-between space-y-4">
+                    <div class="text-center border-b border-slate-800/80 pb-2">
+                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Balanço Comparativo (<span class="lblYearA">A</span> ➔ <span class="lblYearB">B</span>)</span>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 items-center">
+                        <!-- VARIAÇÃO DE QUANTIDADE -->
+                        <div class="bg-slate-900/90 p-3 rounded-xl border border-slate-800/80 text-center space-y-1">
+                            <p class="text-[10px] font-extrabold text-slate-400 uppercase">Volume (Pares)</p>
+                            <div id="compQtyDiff" class="text-base font-black flex items-center justify-center space-x-1">
+                                <span id="compQtyIcon"></span>
+                                <span id="compQtyPct">0%</span>
+                            </div>
+                            <p id="compQtyAbs" class="text-[10px] font-bold text-slate-400">0 pares</p>
+                        </div>
+
+                        <!-- VARIAÇÃO DE CUSTO -->
+                        <div class="bg-slate-900/90 p-3 rounded-xl border border-slate-800/80 text-center space-y-1">
+                            <p class="text-[10px] font-extrabold text-slate-400 uppercase">Financeiro (R$)</p>
+                            <div id="compCostDiff" class="text-base font-black flex items-center justify-center space-x-1">
+                                <span id="compCostIcon"></span>
+                                <span id="compCostPct">0%</span>
+                            </div>
+                            <p id="compCostAbs" class="text-[10px] font-bold text-slate-400">R$ 0,00</p>
                         </div>
                     </div>
-                    <div class="h-20 w-full relative">
+
+                    <!-- FAIXA RESUMO DE INSIGHT -->
+                    <div id="yoyInsightBox" class="bg-emerald-950/40 border border-emerald-800/50 rounded-xl p-2.5 text-center text-[11px] font-bold text-emerald-300 flex items-center justify-center gap-2">
+                        <i data-lucide="sparkles" class="w-3.5 h-3.5 flex-shrink-0 text-emerald-400"></i>
+                        <span id="yoyInsightText">Calculando economia...</span>
+                    </div>
+                </div>
+
+                <!-- ANO B (COMPARAÇÃO + MINI GRÁFICO) -->
+                <div class="lg:col-span-4 bg-slate-950/80 p-4 rounded-xl border border-slate-800 flex flex-col justify-between">
+                    <div class="flex items-center justify-between border-b border-slate-800/80 pb-2 mb-2">
+                        <span class="text-[10px] font-black text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                            Ano Comparado (<span class="lblYearB">B</span>)
+                        </span>
+                        <i data-lucide="bar-chart-2" class="w-3.5 h-3.5 text-slate-500"></i>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2 text-xs mb-2">
+                        <div>
+                            <span class="text-[10px] text-slate-400 font-bold block">Total Luvas:</span>
+                            <span id="compQtyB" class="text-base font-black text-white block">0</span>
+                        </div>
+                        <div>
+                            <span class="text-[10px] text-slate-400 font-bold block">Custo Total:</span>
+                            <span id="compCostB" class="text-base font-black text-emerald-400 block">R$ 0,00</span>
+                        </div>
+                    </div>
+
+                    <!-- GRÁFICO DE BARRAS REFORMATADO -->
+                    <div class="h-28 w-full relative bg-slate-900/60 p-2 rounded-lg border border-slate-800/60">
                         <canvas id="chartYoYBar"></canvas>
                     </div>
                 </div>
@@ -1306,8 +1356,35 @@
             document.getElementById('compCostA').innerText = costA.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
             document.getElementById('compCostB').innerText = costB.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
+            const qtyDiffVal = qtyB - qtyA;
+            const costDiffVal = costB - costA;
+
+            document.getElementById('compQtyAbs').innerText = `${qtyDiffVal >= 0 ? '+' : ''}${qtyDiffVal.toLocaleString('pt-BR')} pares`;
+            document.getElementById('compCostAbs').innerText = `${costDiffVal >= 0 ? '+' : ''}${costDiffVal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`;
+
             updateYoYMetric('compQtyPct', 'compQtyIcon', 'compQtyDiff', qtyA, qtyB);
             updateYoYMetric('compCostPct', 'compCostIcon', 'compCostDiff', costA, costB);
+
+            // Atualização do texto dinâmico do insight
+            const insightBox = document.getElementById('yoyInsightBox');
+            const insightText = document.getElementById('yoyInsightText');
+
+            if (insightBox && insightText) {
+                if (costDiffVal < 0) {
+                    const economy = Math.abs(costDiffVal).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                    const pairsSaved = Math.abs(qtyDiffVal).toLocaleString('pt-BR');
+                    insightBox.className = "bg-emerald-950/40 border border-emerald-800/50 rounded-xl p-2.5 text-center text-[11px] font-bold text-emerald-300 flex items-center justify-center gap-2";
+                    insightText.innerText = `Economia de ${economy} (${pairsSaved} pares a menos solicitados no período)`;
+                } else if (costDiffVal > 0) {
+                    const extraCost = costDiffVal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                    const extraPairs = qtyDiffVal.toLocaleString('pt-BR');
+                    insightBox.className = "bg-amber-950/40 border border-amber-800/50 rounded-xl p-2.5 text-center text-[11px] font-bold text-amber-300 flex items-center justify-center gap-2";
+                    insightText.innerText = `Aumento de ${extraCost} (${extraPairs} pares a mais solicitados)`;
+                } else {
+                    insightBox.className = "bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-center text-[11px] font-bold text-slate-300 flex items-center justify-center gap-2";
+                    insightText.innerText = `Consumo e custos equivalentes entre os exercícios comparados.`;
+                }
+            }
 
             renderYoYMiniChart(yearA, yearB, qtyA, qtyB);
         }
@@ -1320,14 +1397,15 @@
             const iconEl = document.getElementById(iconId);
 
             if (diffEl && iconEl) {
-                if (pct > 0) {
-                    diffEl.className = "text-xs font-black flex items-center text-red-300";
-                    iconEl.innerHTML = '<i data-lucide="trending-up" class="w-3.5 h-3.5"></i>';
-                } else if (pct < 0) {
-                    diffEl.className = "text-xs font-black flex items-center text-emerald-300";
+                // Para consumo e custo de EPI, redução (pct < 0) é positivo (verde) para a empresa
+                if (pct < 0) {
+                    diffEl.className = "text-xs font-black flex items-center text-emerald-400";
                     iconEl.innerHTML = '<i data-lucide="trending-down" class="w-3.5 h-3.5"></i>';
+                } else if (pct > 0) {
+                    diffEl.className = "text-xs font-black flex items-center text-amber-400";
+                    iconEl.innerHTML = '<i data-lucide="trending-up" class="w-3.5 h-3.5"></i>';
                 } else {
-                    diffEl.className = "text-xs font-black flex items-center text-blue-200";
+                    diffEl.className = "text-xs font-black flex items-center text-slate-400";
                     iconEl.innerHTML = '<i data-lucide="minus" class="w-3.5 h-3.5"></i>';
                 }
             }
@@ -1339,17 +1417,17 @@
             const canvasEl = document.getElementById('chartYoYBar');
             if (!canvasEl) return;
 
-            // Para exibição na esquerda -> direita, as barras YoY sempre mostram Ano A primeiro, Ano B depois
             const ctx = canvasEl.getContext('2d');
             chartInstances.yoy = new Chart(ctx, {
                 type: 'bar',
                 data: {
                     labels: [yearA, yearB],
                     datasets: [{
-                        label: 'Total Luvas',
+                        label: 'Total Luvas (Pares)',
                         data: [qtyA, qtyB],
-                        backgroundColor: ['#60a5fa', '#f87171'],
-                        borderRadius: 4
+                        backgroundColor: ['#3b82f6', '#10b981'],
+                        borderRadius: 6,
+                        maxBarThickness: 32
                     }]
                 },
                 options: {
@@ -1357,11 +1435,20 @@
                     maintainAspectRatio: false,
                     plugins: {
                         legend: { display: false },
-                        datalabels: { anchor: 'end', align: 'top', color: '#ffffff', font: { weight: 'bold', size: 10 } }
+                        datalabels: { 
+                            anchor: 'end', 
+                            align: 'top', 
+                            color: '#f8fafc', 
+                            font: { weight: 'black', size: 10 },
+                            formatter: (val) => val > 0 ? val.toLocaleString('pt-BR') : '0'
+                        }
                     },
                     scales: {
-                        y: { display: false },
-                        x: { grid: { display: false }, ticks: { color: '#ffffff', font: { size: 10, weight: 'bold' } } }
+                        y: { display: false, grace: '20%' },
+                        x: { 
+                            grid: { display: false }, 
+                            ticks: { color: '#94a3b8', font: { size: 10, weight: 'bold' } } 
+                        }
                     }
                 }
             });
