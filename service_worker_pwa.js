@@ -1,7 +1,7 @@
-const CACHE_NAME = 'amazon-aco-almoxarifado-v1';
+const CACHE_NAME = 'amazon-aco-almoxarifado-v2';
 const urlsToCache = [
-  './registro_luvas.html',
-  './dashboard.html',
+  './',
+  './index.html',
   './manifest.json'
 ];
 
